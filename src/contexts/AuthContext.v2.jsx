@@ -40,10 +40,7 @@ export function AuthProvider({ children }) {
       }
       return null
     } catch (error) {
-      // 401 is expected when not logged in, don't log as error
-      if (error.status !== 401) {
-        console.error('[AuthContext] Failed to fetch user data:', error)
-      }
+      console.error('Failed to fetch user data:', error)
       return null
     }
   }, [client])
@@ -54,22 +51,15 @@ export function AuthProvider({ children }) {
 
     try {
       const result = await client.api.auth.refresh({})
-      
       const refreshed = result?.status === 'refreshed'
       
       if (refreshed && result.response) {
         setUser(result.response)
-        return true
       }
 
-      // status: 'rejected' is expected when not logged in
-      if (result?.status === 'rejected') {
-        return false
-      }
-
-      return false
+      return refreshed
     } catch (error) {
-      console.error('[AuthContext] Unexpected error during refresh:', error)
+      console.error('Failed to refresh tokens:', error)
       return false
     }
   }, [client])
@@ -94,22 +84,16 @@ export function AuthProvider({ children }) {
       const userData = await fetchUserData()
       if (userData) {
         setUser(userData)
-        setIsLoading(false)
         return
       }
 
-      // If failed, try to refresh tokens (silent - rejection is expected when not logged in)
+      // If failed, try to refresh tokens
       const refreshSuccess = await refreshTokens()
       if (!refreshSuccess) {
-        // Not logged in - this is normal
         setUser(null)
-      } else {
-        // Refresh succeeded, get fresh user data
-        const newUserData = await fetchUserData()
-        setUser(newUserData || null)
       }
     } catch (error) {
-      console.error('[AuthContext] Unexpected error during auth check:', error)
+      console.error('Failed to check auth status:', error)
       setUser(null)
     } finally {
       setIsLoading(false)
@@ -128,13 +112,11 @@ export function AuthProvider({ children }) {
 
         if (result && result.status === 'logged') {
           const userData = await fetchUserData()
-          
           if (userData) {
             setUser(userData)
             await new Promise(resolve => setTimeout(resolve, 50))
             return true
           }
-          return false
         } else {
           const errorMessage =
             result?.response?.message ||
@@ -144,10 +126,11 @@ export function AuthProvider({ children }) {
           return false
         }
       } catch (error) {
-        console.error('[AuthContext] Login error:', error)
+        console.error('Login failed:', error)
         setLastErrorMessage(error.message || 'An unexpected error occurred. Please try again.')
         return false
       }
+      return false
     },
     [client, fetchUserData]
   )

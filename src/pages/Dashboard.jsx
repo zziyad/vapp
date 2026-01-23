@@ -1,15 +1,34 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuth } from '@/contexts/AuthContext'
 
 export default function Dashboard() {
-  const { user, logout } = useAuth()
+  const { user, logout, refreshTokens, isRefreshing } = useAuth()
   const navigate = useNavigate()
+  const [refreshStatus, setRefreshStatus] = useState('')
 
   const handleLogout = async () => {
     await logout()
     navigate('/login')
+  }
+
+  const handleRefresh = async () => {
+    setRefreshStatus('Refreshing...')
+    
+    try {
+      const success = await refreshTokens()
+      if (success) {
+        setRefreshStatus('✅ Refresh successful!')
+      } else {
+        setRefreshStatus('❌ Refresh failed')
+      }
+    } catch (error) {
+      setRefreshStatus(`❌ Error: ${error.message}`)
+    }
+    
+    setTimeout(() => setRefreshStatus(''), 3000)
   }
 
   return (
@@ -17,10 +36,31 @@ export default function Dashboard() {
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-4xl font-bold text-foreground">Dashboard</h1>
-          <Button variant="destructive" onClick={handleLogout}>
-            Logout
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              onClick={handleRefresh} 
+              variant="secondary"
+              disabled={isRefreshing}
+            >
+              {isRefreshing ? 'Refreshing...' : '🔄 Test Token Refresh'}
+            </Button>
+            <Button variant="destructive" onClick={handleLogout}>
+              Logout
+            </Button>
+          </div>
         </div>
+
+        {refreshStatus && (
+          <div className={`p-3 rounded-md text-sm ${
+            refreshStatus.includes('✅') 
+              ? 'bg-green-50 text-green-700 border border-green-200' 
+              : refreshStatus.includes('❌')
+              ? 'bg-red-50 text-red-700 border border-red-200'
+              : 'bg-blue-50 text-blue-700 border border-blue-200'
+          }`}>
+            {refreshStatus}
+          </div>
+        )}
 
         <Card>
           <CardHeader>

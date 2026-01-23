@@ -82,7 +82,8 @@ export async function executeTokenRefresh(performRefreshFn) {
       
       if (DEBUG) console.debug('[TokenController] Token refresh successful', { generation: currentGeneration })
     } else {
-      if (DEBUG) console.warn('[TokenController] Token refresh failed')
+      // Refresh rejection is normal when not logged in - don't warn
+      // if (DEBUG) console.warn('[TokenController] Token refresh failed')
     }
     
     return success
