@@ -7,6 +7,8 @@
 
 import { HttpTransport } from './HttpTransport';
 import { WebSocketTransport } from './WebSocketTransport';
+import { StreamUploader } from './StreamUploader';
+import { StreamDownloader } from './StreamDownloader';
 
 export class Client {
   constructor(options = {}) {
@@ -140,6 +142,35 @@ export class Client {
       websocket: this.wsConnected,
       preferWebSocket: this.preferWebSocket,
     };
+  }
+
+  /**
+   * Create blob/file uploader for streaming upload
+   * @param {Blob|File} blob - File or Blob to upload
+   * @param {object} options - Upload options (chunkSize, timeout)
+   * @returns {StreamUploader}
+   */
+  createBlobUploader(blob, options = {}) {
+    const id = this.generateStreamId();
+    return new StreamUploader(id, blob, this.wsTransport, options);
+  }
+
+  /**
+   * Create stream downloader for streaming download
+   * @param {string} streamId - Stream ID
+   * @param {object} options - Download options (timeout)
+   * @returns {StreamDownloader}
+   */
+  createStreamDownloader(streamId, options = {}) {
+    return new StreamDownloader(streamId, this.wsTransport, options);
+  }
+
+  /**
+   * Generate unique stream ID
+   * @returns {string}
+   */
+  generateStreamId() {
+    return `stream-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
 
   /**

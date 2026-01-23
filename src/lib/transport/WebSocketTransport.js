@@ -12,11 +12,13 @@ export class WebSocketTransport extends Transport {
     super(wsUrl);
     this.ws = null;
     this.callbacks = new Map();
+    this.streams = new Map(); // Stream ID → StreamDownloader
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = options.maxReconnectAttempts || 5;
     this.reconnectDelay = options.reconnectDelay || 1000;
     this.autoReconnect = options.autoReconnect !== false;
     this.connectionPromise = null;
+    this.binaryQueue = Promise.resolve();
   }
 
   /**
@@ -36,6 +38,8 @@ export class WebSocketTransport extends Transport {
     this.connectionPromise = new Promise((resolve, reject) => {
       try {
         this.ws = new WebSocket(this.url);
+        // Ensure binary frames arrive as ArrayBuffer to preserve ordering
+        this.ws.binaryType = 'arraybuffer';
 
         const timeout = setTimeout(() => {
           reject(new Error('WebSocket connection timeout'));
@@ -58,7 +62,22 @@ export class WebSocketTransport extends Transport {
         };
 
         this.ws.onmessage = (event) => {
-          this.handleMessage(event.data);
+          console.log(`[WS onmessage] Received:`, {
+            type: typeof event.data,
+            isString: typeof event.data === 'string',
+            size: event.data instanceof Blob ? event.data.size : (event.data.length || event.data.byteLength || 'unknown'),
+          });
+          
+          if (typeof event.data === 'string') {
+            this.handleMessage(event.data);
+          } else {
+            // Binary message: process sequentially to preserve chunk order
+            this.binaryQueue = this.binaryQueue
+              .then(() => this.handleBinaryMessage(event.data))
+              .catch((error) => {
+                console.error('Failed to handle binary message:', error);
+              });
+          }
         };
 
         this.ws.onclose = () => {
@@ -149,9 +168,9 @@ export class WebSocketTransport extends Transport {
         return;
       }
 
-      // Handle stream data (for future streaming support)
-      if (packet.type === 'stream-data') {
-        this.emit('stream-data', packet);
+      // Handle stream control packets
+      if (packet.type === 'stream') {
+        this.handleStreamPacket(packet);
         return;
       }
 
@@ -160,6 +179,109 @@ export class WebSocketTransport extends Transport {
     } catch (error) {
       console.error('Failed to handle WebSocket message:', error);
     }
+  }
+
+  /**
+   * Handle binary WebSocket message (stream chunks)
+   */
+  async handleBinaryMessage(data) {
+    try {
+      // Metacom-style chunk decoding: [id_length:1][id:N][payload]
+      const arrayBuffer = data instanceof ArrayBuffer 
+        ? data 
+        : await data.arrayBuffer();
+
+      const chunk = new Uint8Array(arrayBuffer);
+      const idLength = chunk[0];
+      const streamId = new TextDecoder().decode(chunk.subarray(1, 1 + idLength));
+      
+      // CRITICAL: Create immediate copy using .slice() which returns a NEW Uint8Array with NEW buffer
+      // Browser reuses WebSocket buffer for next message, so views become invalid
+      const payload = chunk.slice(1 + idLength);
+      
+      const stream = this.streams.get(streamId);
+      if (stream) {
+        stream.handleChunk(payload);
+      } else {
+        console.warn(`Received chunk for unknown stream: ${streamId}`);
+      }
+    } catch (error) {
+      console.error('Failed to handle binary message:', error);
+    }
+  }
+
+  /**
+   * Handle stream control packets
+   */
+  handleStreamPacket(packet) {
+    const { id, status, name, size } = packet;
+    const stream = this.streams.get(id);
+
+    if (status === 'init' && name && typeof size === 'number') {
+      // Server initiated stream (download)
+      if (stream) {
+        stream.handleInit(packet);
+      }
+    } else if (status === 'ready') {
+      // Stream ready to receive data
+      // This is typically for uploads - no action needed
+    } else if (status === 'end') {
+      // Stream completed
+      if (stream) {
+        stream.handleEnd();
+      }
+    } else if (status === 'terminate') {
+      // Stream terminated
+      if (stream) {
+        stream.handleTerminate();
+      }
+    } else {
+      console.warn('Unknown stream status:', status);
+    }
+  }
+
+  /**
+   * Send binary chunk (Metacom-style)
+   */
+  async sendBinary(chunk) {
+    if (!this.connected || !this.ws) {
+      throw new Error('WebSocket not connected');
+    }
+
+    if (this.ws.readyState !== WebSocket.OPEN) {
+      throw new Error('WebSocket not ready');
+    }
+
+    this.ws.send(chunk);
+  }
+
+  /**
+   * Send JSON packet (overridden to add stream support)
+   */
+  async send(packet) {
+    if (!this.connected || !this.ws) {
+      throw new Error('WebSocket not connected');
+    }
+
+    if (this.ws.readyState !== WebSocket.OPEN) {
+      throw new Error('WebSocket not ready');
+    }
+
+    this.ws.send(JSON.stringify(packet));
+  }
+
+  /**
+   * Register stream for receiving data
+   */
+  registerStream(streamId, stream) {
+    this.streams.set(streamId, stream);
+  }
+
+  /**
+   * Unregister stream
+   */
+  unregisterStream(streamId) {
+    this.streams.delete(streamId);
   }
 
   /**

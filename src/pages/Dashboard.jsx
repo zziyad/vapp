@@ -38,6 +38,12 @@ export default function Dashboard() {
           <h1 className="text-4xl font-bold text-foreground">Dashboard</h1>
           <div className="flex gap-2">
             <Button 
+              onClick={() => navigate('/files')} 
+              variant="outline"
+            >
+              📁 File Manager
+            </Button>
+            <Button 
               onClick={handleRefresh} 
               variant="secondary"
               disabled={isRefreshing}

@@ -16,6 +16,8 @@ import Login from '@/pages/auth/Login'
 import Dashboard from '@/pages/Dashboard'
 import TransportDemo from '@/pages/TransportDemo'
 import DebugAuth from '@/pages/DebugAuth'
+import FileUploadTest from '@/pages/FileUploadTest'
+import FileManager from '@/pages/FileManager'
 // import Home from '@/pages/Home'
 
 /**
@@ -91,6 +93,28 @@ export const routes = [
     meta: {
       title: 'Transport Demo',
       description: 'HTTP and WebSocket transport testing',
+    },
+  },
+
+  // File Upload Test (for development/testing)
+  {
+    path: '/file-upload-test',
+    component: FileUploadTest,
+    protected: true,
+    meta: {
+      title: 'File Upload Test',
+      description: 'WebSocket streaming file upload testing',
+    },
+  },
+
+  // File Manager (upload + download)
+  {
+    path: '/files',
+    component: FileManager,
+    protected: true,
+    meta: {
+      title: 'File Manager',
+      description: 'Upload, download, and manage files',
     },
   },
   
