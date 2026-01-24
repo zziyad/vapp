@@ -13,7 +13,8 @@
 
 // Import page components
 import Login from '@/pages/auth/Login'
-import Dashboard from '@/pages/Dashboard'
+import Events from '@/pages/Events'
+import EventDetail from '@/pages/EventDetail'
 import TransportDemo from '@/pages/TransportDemo'
 import DebugAuth from '@/pages/DebugAuth'
 import FileUploadTest from '@/pages/FileUploadTest'
@@ -62,11 +63,29 @@ export const routes = [
   // ========================================
   {
     path: '/dashboard',
-    component: Dashboard,
+    component: Events,
     protected: true,
     meta: {
-      title: 'Dashboard',
-      description: 'User dashboard and session information',
+      title: 'Events',
+      description: 'Events list',
+    },
+  },
+  {
+    path: '/events',
+    component: Events,
+    protected: true,
+    meta: {
+      title: 'Events',
+      description: 'Events list',
+    },
+  },
+  {
+    path: '/events/:eventId',
+    component: EventDetail,
+    protected: true,
+    meta: {
+      title: 'Event Detail',
+      description: 'Event dashboard',
     },
   },
 

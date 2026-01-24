@@ -19,6 +19,8 @@ export class WebSocketTransport extends Transport {
     this.autoReconnect = options.autoReconnect !== false;
     this.connectionPromise = null;
     this.binaryQueue = Promise.resolve();
+    this.refreshHandler = null;
+    this.suppressAutoReconnect = false;
   }
 
   /**
@@ -114,7 +116,7 @@ export class WebSocketTransport extends Transport {
       args,
     };
 
-    return new Promise((resolve, reject) => {
+    const doCall = () => new Promise((resolve, reject) => {
       // Store callback
       this.callbacks.set(id, { resolve, reject, method });
 
@@ -135,6 +137,32 @@ export class WebSocketTransport extends Transport {
         }
       }, 30000);
     });
+
+    try {
+      return await doCall();
+    } catch (error) {
+      const message = String(error?.message || '');
+      const authError =
+        error?.status === 401 ||
+        error?.code === 401 ||
+        error?.code === 'AUTH_REQUIRED' ||
+        error?.code === 'INVALID_TOKEN' ||
+        /authentication required|invalid or expired token/i.test(message);
+
+      if (
+        authError &&
+        this.refreshHandler &&
+        !args?._retry &&
+        method !== 'auth/refresh'
+      ) {
+        const refreshed = await this.refreshHandler();
+        if (refreshed) {
+          await this.forceReconnect();
+          return await this.call(method, { ...args, _retry: true });
+        }
+      }
+      throw error;
+    }
   }
 
   /**
@@ -301,7 +329,7 @@ export class WebSocketTransport extends Transport {
     this.emit('disconnected');
 
       // Attempt reconnect if enabled
-      if (this.autoReconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
+      if (!this.suppressAutoReconnect && this.autoReconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
         this.reconnectAttempts++;
         const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
         
@@ -312,6 +340,7 @@ export class WebSocketTransport extends Transport {
           });
         }, delay);
       }
+      this.suppressAutoReconnect = false;
   }
 
   /**
@@ -333,6 +362,27 @@ export class WebSocketTransport extends Transport {
       callback.reject(new Error('Connection closed by client'));
     });
     this.callbacks.clear();
+  }
+
+  /**
+   * Force reconnect without disabling auto-reconnect
+   */
+  async forceReconnect() {
+    if (this.ws) {
+      this.suppressAutoReconnect = true;
+      this.ws.close();
+      this.ws = null;
+    }
+    this.connected = false;
+    this.connectionPromise = null;
+    return this.connect();
+  }
+
+  /**
+   * Set token refresh handler (called on 401)
+   */
+  setRefreshHandler(handler) {
+    this.refreshHandler = handler || null;
   }
 
   /**

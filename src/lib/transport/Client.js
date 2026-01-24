@@ -27,6 +27,7 @@ export class Client {
     
     this.preferWebSocket = preferWebSocket;
     this.autoConnectWebSocket = autoConnectWebSocket;
+    this.authRefreshHandler = null;
 
     // Forward WebSocket events
     this.wsTransport.on('connected', () => {
@@ -83,18 +84,33 @@ export class Client {
    * Make RPC call using appropriate transport
    */
   async call(method, args = {}) {
-    // Try WebSocket if connected and preferred
-    if (this.preferWebSocket && this.wsTransport.isConnected()) {
+    const isAuth = typeof method === 'string' && method.startsWith('auth/');
+
+    // Auth always goes over HTTP
+    if (isAuth) {
+      return await this.httpTransport.call(method, args);
+    }
+
+    // All non-auth calls go over WebSocket
+    if (!this.wsTransport.isConnected()) {
       try {
-        return await this.wsTransport.call(method, args);
+        await this.wsTransport.connect();
       } catch (error) {
-        console.warn('WebSocket call failed, falling back to HTTP:', error);
-        // Fallback to HTTP below
+        throw new Error('WebSocket not connected');
       }
     }
 
-    // Use HTTP transport
-    return await this.httpTransport.call(method, args);
+    return await this.wsTransport.call(method, args);
+  }
+
+  /**
+   * Set token refresh handler for WebSocket calls
+   * @param {Function|null} handler
+   */
+  setAuthRefreshHandler(handler) {
+    this.authRefreshHandler = handler || null;
+    this.wsTransport.setRefreshHandler(this.authRefreshHandler);
+    this.httpTransport.setRefreshHandler(this.authRefreshHandler);
   }
 
   /**

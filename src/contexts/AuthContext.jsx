@@ -88,6 +88,15 @@ export function AuthProvider({ children }) {
     }
   }, [performRefresh])
 
+  // Register refresh handler for WebSocket calls
+  useEffect(() => {
+    if (!client) return
+    client.setAuthRefreshHandler(refreshTokens)
+    return () => {
+      client.setAuthRefreshHandler(null)
+    }
+  }, [client, refreshTokens])
+
   // Check auth status
   const checkAuthStatus = useCallback(async () => {
     try {
