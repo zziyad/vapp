@@ -1,5 +1,52 @@
 # Changelog
 
+## [2.2.0] - WS-First Data + Event Aggregates
+
+### ✨ New Features
+- **WS-first API**: All non-auth calls use WebSocket; auth stays HTTP-only
+- **Event Aggregates**: Aggregate layer with event bus + module behavior
+- **TTL/LRU Cache**: Dimensioned aggregate caching with cleanup
+- **Events UI**: Events list replaces dashboard, detail page added
+
+### 📝 Changed
+- `Client.call()` now routes non-auth to WebSocket only
+- Event pages now use aggregate state + event bus
+
+### 📂 New Files
+```
+src/aggregates/event/
+├── create-event-aggregate.js
+├── get-event-aggregate.js
+└── modules/
+    ├── create-events-module.js
+    └── create-module-behavior.js
+
+src/lib/
+└── event-emitter.js
+
+src/pages/
+├── Events.jsx
+└── EventDetail.jsx
+```
+
+## [2.1.0] - Streaming Upload/Download
+
+### ✨ New Features
+- **Streaming Upload/Download** via WebSocket (Metacom-style)
+- **File Manager** page with upload/download + hash integrity checks
+- **Binary Handling** fixes: ordered WS chunks + ArrayBuffer handling
+
+### 📝 Changed
+- Stream lifecycle stabilized (init/ready/end) with size-based completion
+- Download uses delayed `URL.revokeObjectURL` to avoid corruption
+
+## [1.1.0] - Authentication System
+
+### ✨ New Features
+- **Login/logout/session** flows fully implemented
+- **Token refresh** with SingleFlight + cross-tab sync
+- **Protected routes** and session display
+
 ## [2.0.0] - Transport System Implementation
 
 ### ✨ New Features
