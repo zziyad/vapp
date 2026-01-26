@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -26,6 +26,7 @@ export default function EventDetail() {
   const [event, setEvent] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const eventRef = useRef(null)
 
   useEffect(() => {
     if (!aggregate?.events) return
@@ -37,6 +38,10 @@ export default function EventDetail() {
       }
     })
   }, [aggregate])
+
+  useEffect(() => {
+    eventRef.current = event
+  }, [event])
 
   useEffect(() => {
     if (location?.state?.event) {
@@ -53,11 +58,11 @@ export default function EventDetail() {
     try {
       await aggregate.events.detail(eventId)
     } catch (err) {
-      if (!event && !location?.state?.event) {
+      if (!eventRef.current && !location?.state?.event) {
         setError(err?.message || 'Failed to load event')
       }
     }
-  }, [aggregate, eventId, event, location?.state?.event])
+  }, [aggregate, eventId, location?.state?.event])
 
   useEffect(() => {
     fetchEvent()
@@ -79,6 +84,11 @@ export default function EventDetail() {
             <Button variant="outline" onClick={() => navigate('/events')}>
               Back to Events
             </Button>
+            {eventId && (
+              <Button variant="default" onClick={() => navigate(`/events/${eventId}/vapp`)}>
+                Go to VAPP
+              </Button>
+            )}
             <Button onClick={fetchEvent} disabled={loading}>
               {loading ? 'Refreshing...' : 'Refresh'}
             </Button>

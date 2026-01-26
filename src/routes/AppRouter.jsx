@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, Link } from 'react-router-dom'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import { routes } from './routes.config'
 
@@ -23,6 +23,16 @@ export default function AppRouter() {
           )
         }
 
+        const Component = route.component
+        const Layout = route.layout
+        if (!Component) return null
+
+        // Create element with optional layout wrapper
+        let element = <Component />
+        if (Layout) {
+          element = <Layout>{element}</Layout>
+        }
+
         // Handle protected routes
         if (route.protected) {
           return (
@@ -31,7 +41,7 @@ export default function AppRouter() {
               path={route.path}
               element={
                 <ProtectedRoute>
-                  <route.component />
+                  {element}
                 </ProtectedRoute>
               }
             />
@@ -43,7 +53,7 @@ export default function AppRouter() {
           <Route
             key={route.path}
             path={route.path}
-            element={<route.component />}
+            element={element}
           />
         )
       })}
@@ -56,12 +66,23 @@ export default function AppRouter() {
             <div className="text-center space-y-4">
               <h1 className="text-6xl font-bold text-foreground">404</h1>
               <p className="text-xl text-muted-foreground">Page not found</p>
-              <a
-                href="/dashboard"
-                className="inline-block px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-              >
-                Go to Dashboard
-              </a>
+              <p className="text-sm text-muted-foreground">
+                The page you're looking for doesn't exist.
+              </p>
+              <div className="flex gap-2 justify-center">
+                <Link
+                  to="/dashboard"
+                  className="inline-block px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                >
+                  Go to Dashboard
+                </Link>
+                <Link
+                  to="/events"
+                  className="inline-block px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors"
+                >
+                  View Events
+                </Link>
+              </div>
             </div>
           </div>
         }

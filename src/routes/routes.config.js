@@ -14,11 +14,28 @@
 // Import page components
 import Login from '@/pages/auth/Login'
 import Events from '@/pages/Events'
-import EventDetail from '@/pages/EventDetail'
+import EventDetail from '@/pages/EventDetail/index.jsx'
 import TransportDemo from '@/pages/TransportDemo'
 import DebugAuth from '@/pages/DebugAuth'
-import FileUploadTest from '@/pages/FileUploadTest'
 import FileManager from '@/pages/FileManager'
+import VappRoot from '@/pages/vapp/VappRoot'
+import OpsDashboard from '@/pages/vapp/OpsDashboard'
+import RequesterDashboard from '@/pages/vapp/RequesterDashboard'
+import AdminDashboard from '@/pages/vapp/admin/AdminDashboard'
+import SectorsPage from '@/pages/vapp/admin/sectors/index.jsx'
+import FunctionalAreasPage from '@/pages/vapp/admin/functional-areas/index.jsx'
+import VehicleTypesPage from '@/pages/vapp/admin/vehicle-types/index.jsx'
+import AccessZonesPage from '@/pages/vapp/admin/access-zones/index.jsx'
+import AccessTypesPage from '@/pages/vapp/admin/access-types/index.jsx'
+import ValidityPage from '@/pages/vapp/admin/validity/index.jsx'
+import ImportancePage from '@/pages/vapp/admin/importance/index.jsx'
+import PermitTypesPage from '@/pages/vapp/admin/permit-types/index.jsx'
+import EventSetupPage from '@/pages/vapp/admin/event/index.jsx'
+import RBACPage from '@/pages/vapp/admin/rbac/index.jsx'
+import ReadinessPage from '@/pages/vapp/admin/readiness/index.jsx'
+import SerialNumbersPage from '@/pages/vapp/admin/serial-numbers/index.jsx'
+import PagesIndex from '@/pages/PagesIndex/index.jsx'
+import VappLayout from '@/components/layout/VappLayout'
 // import Home from '@/pages/Home'
 
 /**
@@ -62,15 +79,6 @@ export const routes = [
   // PROTECTED ROUTES (authentication required)
   // ========================================
   {
-    path: '/dashboard',
-    component: Events,
-    protected: true,
-    meta: {
-      title: 'Events',
-      description: 'Events list',
-    },
-  },
-  {
     path: '/events',
     component: Events,
     protected: true,
@@ -79,10 +87,173 @@ export const routes = [
       description: 'Events list',
     },
   },
+  // More specific routes must come before less specific ones
+  {
+    path: '/events/:eventId/vapp/admin/dashboard',
+    component: AdminDashboard,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'VAPP Admin Dashboard',
+      description: 'Manager / Config dashboard',
+    },
+  },
+  // Config entities - Domain A
+  {
+    path: '/events/:eventId/vapp/admin/sectors',
+    component: SectorsPage,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'Sectors',
+      description: 'Manage organizational sectors',
+    },
+  },
+  {
+    path: '/events/:eventId/vapp/admin/functional-areas',
+    component: FunctionalAreasPage,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'Functional Areas',
+      description: 'Manage functional areas',
+    },
+  },
+  {
+    path: '/events/:eventId/vapp/admin/vehicle-types',
+    component: VehicleTypesPage,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'Vehicle Types',
+      description: 'Manage vehicle types',
+    },
+  },
+  {
+    path: '/events/:eventId/vapp/admin/access-zones',
+    component: AccessZonesPage,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'Access Zones',
+      description: 'Manage access zones',
+    },
+  },
+  {
+    path: '/events/:eventId/vapp/admin/access-types',
+    component: AccessTypesPage,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'Access Types',
+      description: 'Manage access types',
+    },
+  },
+  {
+    path: '/events/:eventId/vapp/admin/validity',
+    component: ValidityPage,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'Validity',
+      description: 'Manage validity periods',
+    },
+  },
+  {
+    path: '/events/:eventId/vapp/admin/importance',
+    component: ImportancePage,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'Importance',
+      description: 'View importance levels',
+    },
+  },
+  {
+    path: '/events/:eventId/vapp/admin/permit-types',
+    component: PermitTypesPage,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'Permit Types',
+      description: 'Manage permit types and their configurations',
+    },
+  },
+  {
+    path: '/events/:eventId/vapp/admin/event',
+    component: EventSetupPage,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'Event Setup',
+      description: 'Configure event-specific VAPP settings',
+    },
+  },
+  {
+    path: '/events/:eventId/vapp/admin/rbac',
+    component: RBACPage,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'RBAC / Permissions',
+      description: 'Manage roles and permissions for VAPP',
+    },
+  },
+  {
+    path: '/events/:eventId/vapp/admin/readiness',
+    component: ReadinessPage,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'Readiness Checklist',
+      description: 'Verify all required configuration is complete',
+    },
+  },
+  {
+    path: '/events/:eventId/vapp/admin/serial-numbers',
+    component: SerialNumbersPage,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'Serial Number Pool',
+      description: 'Generate and manage serial numbers for permit types and subtypes',
+    },
+  },
+  {
+    path: '/events/:eventId/vapp/ops/dashboard',
+    component: OpsDashboard,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'VAPP Ops Dashboard',
+      description: 'Operations dashboard',
+    },
+  },
+  {
+    path: '/events/:eventId/vapp/requester/dashboard',
+    component: RequesterDashboard,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'VAPP Requester Dashboard',
+      description: 'Requester dashboard',
+    },
+  },
+  {
+    path: '/events/:eventId/vapp',
+    component: VappRoot,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'VAPP',
+      description: 'VAPP workspace routing',
+    },
+  },
   {
     path: '/events/:eventId',
     component: EventDetail,
     protected: true,
+    layout: VappLayout,
     meta: {
       title: 'Event Detail',
       description: 'Event dashboard',
@@ -92,6 +263,17 @@ export const routes = [
   // ========================================
   // ADD NEW ROUTES HERE
   // ========================================
+  
+  // Pages Index - Overview of all pages
+  {
+    path: '/pages',
+    component: PagesIndex,
+    protected: true,
+    meta: {
+      title: 'Pages Index',
+      description: 'Complete list of all available pages',
+    },
+  },
   
   // Debug Auth (for development/testing)
   {
@@ -112,17 +294,6 @@ export const routes = [
     meta: {
       title: 'Transport Demo',
       description: 'HTTP and WebSocket transport testing',
-    },
-  },
-
-  // File Upload Test (for development/testing)
-  {
-    path: '/file-upload-test',
-    component: FileUploadTest,
-    protected: true,
-    meta: {
-      title: 'File Upload Test',
-      description: 'WebSocket streaming file upload testing',
     },
   },
 
@@ -153,14 +324,18 @@ export const routes = [
   // ========================================
   {
     path: '/',
-    redirect: '/dashboard',
+    redirect: '/events',
+  },
+  {
+    path: '/dashboard',
+    redirect: '/events',
   },
 ]
 
 // Route groups for better organization (optional)
 export const routeGroups = {
   auth: ['/login'],
-  protected: ['/dashboard'],
+  protected: ['/events'],
   public: [],
 }
 

@@ -151,8 +151,8 @@ export default function FileManager() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => navigate('/dashboard')}>
-              ← Dashboard
+            <Button variant="outline" onClick={() => navigate('/events')}>
+              ← Events
             </Button>
             <Button variant="destructive" onClick={handleLogout}>
               Logout

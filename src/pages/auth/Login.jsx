@@ -23,7 +23,7 @@ export default function Login() {
       const success = await login(email, password)
 
       if (success) {
-        navigate('/dashboard')
+        navigate('/events')
       } else {
         setError(lastErrorMessage || 'Login failed. Please try again.')
       }

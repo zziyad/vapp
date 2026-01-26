@@ -9,6 +9,7 @@ A modern React application with authentication and user session management.
 - 🔐 Authentication system with session management
 - 🛣️ React Router for navigation
 - 📱 Responsive design
+- 🔄 Aggregate Pattern for data fetching (default)
 
 ## Setup
 
@@ -41,12 +42,42 @@ The app connects to a backend API. Configure the API URL in `.env`:
 VITE_API_URL=http://localhost:8005
 ```
 
+## Data Fetching - Aggregate Pattern
+
+**The Aggregate Pattern is the default and required way to fetch data in pages.**
+
+### Quick Start
+
+```javascript
+import { getEventAggregate } from '@/aggregates/event/get-event-aggregate'
+
+const aggregate = useMemo(() => {
+  if (!client) return null
+  return getEventAggregate(eventId, client)
+}, [client, eventId])
+
+useEffect(() => {
+  if (!aggregate?.events) return
+  return aggregate.events.subscribe((state) => {
+    setEvent(state.detail)
+    setLoading(state.detailLoading)
+  })
+}, [aggregate])
+```
+
+### Documentation
+
+- **[Complete Guide](./docs/AGGREGATE_PATTERN_GUIDE.md)** - Full documentation
+- **[Quick Reference](./docs/AGGREGATE_PATTERN_QUICK_REFERENCE.md)** - 5-minute cheat sheet
+- **[Template](./docs/templates/PageWithAggregate.jsx)** - Copy-paste template
+- **[Main Guide](./README_AGGREGATE_PATTERN.md)** - Overview and links
+
 ## Authentication
 
 The app implements a complete authentication flow:
 
 - Login page (`/login`)
-- Protected dashboard (`/dashboard`)
+- Protected routes (`/events`)
 - Session management with cookies
 - User information display
 
@@ -57,6 +88,8 @@ The auth system uses the following RPC endpoints:
 - `auth/signin` - Login with email and password
 - `auth/me` - Get current user session data
 - `auth/logout` - Logout and clear session
+
+**Note:** All non-auth calls use WebSocket transport via aggregates.
 
 ## Project Structure
 
