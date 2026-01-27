@@ -82,10 +82,29 @@ export function createEventsModule(client, eventBus) {
 
   const update = async (payload) => {
     if (!client) throw new Error('Transport client not ready')
-    const result = await client.api.event.update(payload)
-    const updated = unwrap(result, 'Failed to update event')
-    if (eventBus) eventBus.emit('events:updated', updated)
-    return updated
+    setState({ updateLoading: true, updateError: '' })
+    try {
+      console.log('EventsModule: Updating event', payload)
+      const result = await client.api.event.update(payload)
+      const updated = unwrap(result, 'Failed to update event')
+      console.log('EventsModule: Update successful', { updatedId: updated?.id, currentDetailId: state.detail?.id, settings: updated?.settings })
+      // Always update state.detail if we have an updated event (even if IDs don't match, update anyway)
+      if (updated) {
+        console.log('EventsModule: Updating state.detail with new event data', {
+          oldSettings: state.detail?.settings,
+          newSettings: updated.settings
+        })
+        setState({ detail: updated })
+      }
+      if (eventBus) eventBus.emit('events:updated', updated)
+      return updated
+    } catch (error) {
+      console.error('EventsModule: Update failed', error)
+      setState({ updateError: error.message || 'Failed to update event' })
+      throw error
+    } finally {
+      setState({ updateLoading: false })
+    }
   }
 
   const setDetail = (value) => {

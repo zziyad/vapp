@@ -21,6 +21,12 @@ import FileManager from '@/pages/FileManager'
 import VappRoot from '@/pages/vapp/VappRoot'
 import OpsDashboard from '@/pages/vapp/OpsDashboard'
 import RequesterDashboard from '@/pages/vapp/RequesterDashboard'
+import RequesterRequestsPage from '@/pages/vapp/requester/requests/index.jsx'
+import RequesterDraftsPage from '@/pages/vapp/requester/requests/drafts/index.jsx'
+import RequesterRequestDetailPage from '@/pages/vapp/requester/requests/[requestId]/index.jsx'
+import RequesterNeedInfoPage from '@/pages/vapp/requester/need-info/index.jsx'
+import RequesterNotificationsPage from '@/pages/vapp/requester/notifications/index.jsx'
+import CreateRequestPage from '@/pages/vapp/requester/requests/new/index.jsx'
 import AdminDashboard from '@/pages/vapp/admin/AdminDashboard'
 import SectorsPage from '@/pages/vapp/admin/sectors/index.jsx'
 import FunctionalAreasPage from '@/pages/vapp/admin/functional-areas/index.jsx'
@@ -34,6 +40,7 @@ import EventSetupPage from '@/pages/vapp/admin/event/index.jsx'
 import RBACPage from '@/pages/vapp/admin/rbac/index.jsx'
 import ReadinessPage from '@/pages/vapp/admin/readiness/index.jsx'
 import SerialNumbersPage from '@/pages/vapp/admin/serial-numbers/index.jsx'
+import SettingsPage from '@/pages/vapp/admin/settings/index.jsx'
 import PagesIndex from '@/pages/PagesIndex/index.jsx'
 import VappLayout from '@/components/layout/VappLayout'
 // import Home from '@/pages/Home'
@@ -220,6 +227,16 @@ export const routes = [
     },
   },
   {
+    path: '/events/:eventId/vapp/admin/settings',
+    component: SettingsPage,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'Event Settings',
+      description: 'Configure event-specific VAPP settings',
+    },
+  },
+  {
     path: '/events/:eventId/vapp/ops/dashboard',
     component: OpsDashboard,
     protected: true,
@@ -237,6 +254,66 @@ export const routes = [
     meta: {
       title: 'VAPP Requester Dashboard',
       description: 'Requester dashboard',
+    },
+  },
+  {
+    path: '/events/:eventId/vapp/requester/requests/new',
+    component: CreateRequestPage,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'Create Request',
+      description: 'Create a new access request',
+    },
+  },
+  {
+    path: '/events/:eventId/vapp/requester/requests/:requestId',
+    component: RequesterRequestDetailPage,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'Edit Request',
+      description: 'View and edit your access request',
+    },
+  },
+  {
+    path: '/events/:eventId/vapp/requester/requests/drafts',
+    component: RequesterDraftsPage,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'Drafts',
+      description: 'Continue editing your draft requests',
+    },
+  },
+  {
+    path: '/events/:eventId/vapp/requester/requests',
+    component: RequesterRequestsPage,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'My Requests',
+      description: 'View and manage your access requests',
+    },
+  },
+  {
+    path: '/events/:eventId/vapp/requester/need-info',
+    component: RequesterNeedInfoPage,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'Need Info',
+      description: 'Requests that need additional information or corrections',
+    },
+  },
+  {
+    path: '/events/:eventId/vapp/requester/notifications',
+    component: RequesterNotificationsPage,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'Notifications',
+      description: 'View notifications and messages about your requests',
     },
   },
   {

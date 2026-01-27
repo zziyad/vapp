@@ -3,14 +3,14 @@ import { useParams } from 'react-router-dom'
 import { isValidUUID } from '@/lib/utils/uuid'
 import Container from '@/components/layout/Container'
 import { RequesterSidebar } from '@/components/vapp/requester/RequesterSidebar'
-import { RequesterDashboard } from '@/components/vapp/requester/dashboard/RequesterDashboard'
-import { VappPageHeader } from '@/components/vapp/shared/navigation/VappPageHeader'
+import { NeedInfoQueue } from '@/components/vapp/requester/need-info/NeedInfoQueue'
+import { WorkspaceTabs } from '@/components/vapp/shared/navigation/WorkspaceTabs'
 
 /**
- * Requester Dashboard Page
- * Main dashboard for Requester Portal
+ * Need Info Page (Requester Portal)
+ * List of requests that need information/corrections
  */
-export default function RequesterDashboardPage() {
+export default function NeedInfoPage() {
   const params = useParams()
   const eventId = useMemo(
     () => (Array.isArray(params?.eventId) ? params.eventId[0] : params?.eventId),
@@ -32,11 +32,11 @@ export default function RequesterDashboardPage() {
 
   return (
     <Container className="py-6">
-      <VappPageHeader
-        eventId={eventId}
-        pageTitle="Dashboard"
-        pageDescription="Overview of your access requests"
-      />
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-2">Need Info</h1>
+        <p className="text-gray-600 mb-4">Requests that need additional information or corrections</p>
+        <WorkspaceTabs eventId={eventId} />
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-1">
@@ -44,7 +44,7 @@ export default function RequesterDashboardPage() {
         </div>
 
         <div className="lg:col-span-3">
-          <RequesterDashboard eventId={eventId} />
+          <NeedInfoQueue eventId={eventId} />
         </div>
       </div>
     </Container>

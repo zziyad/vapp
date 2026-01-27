@@ -2,15 +2,16 @@ import { useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { isValidUUID } from '@/lib/utils/uuid'
 import Container from '@/components/layout/Container'
-import { RequesterSidebar } from '@/components/vapp/requester/RequesterSidebar'
-import { RequesterDashboard } from '@/components/vapp/requester/dashboard/RequesterDashboard'
+import { AdminSidebar } from '@/components/vapp/admin/AdminSidebar'
 import { VappPageHeader } from '@/components/vapp/shared/navigation/VappPageHeader'
+import { PermissionGuard, PERMISSIONS } from '@/components/permissions'
+import { EventSettings } from '@/components/vapp/admin/settings/EventSettings'
 
 /**
- * Requester Dashboard Page
- * Main dashboard for Requester Portal
+ * Event Settings Page (Admin)
+ * Configure event-specific settings like request edit deadline
  */
-export default function RequesterDashboardPage() {
+export default function SettingsPage() {
   const params = useParams()
   const eventId = useMemo(
     () => (Array.isArray(params?.eventId) ? params.eventId[0] : params?.eventId),
@@ -34,17 +35,21 @@ export default function RequesterDashboardPage() {
     <Container className="py-6">
       <VappPageHeader
         eventId={eventId}
-        pageTitle="Dashboard"
-        pageDescription="Overview of your access requests"
+        pageTitle="Event Settings"
+        pageDescription="Configure event-specific VAPP settings"
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Left Sidebar - Navigation */}
         <div className="lg:col-span-1">
-          <RequesterSidebar eventId={eventId} />
+          <AdminSidebar eventId={eventId} />
         </div>
 
+        {/* Main Content */}
         <div className="lg:col-span-3">
-          <RequesterDashboard eventId={eventId} />
+          <PermissionGuard permission={PERMISSIONS.VAPP.CONFIG.WRITE || PERMISSIONS.VAPP.CONFIG.READ}>
+            <EventSettings eventId={eventId} />
+          </PermissionGuard>
         </div>
       </div>
     </Container>

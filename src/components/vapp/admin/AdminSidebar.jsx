@@ -17,6 +17,7 @@ import {
 	Calendar,
 	Star,
 	Hash,
+	Sliders,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -49,6 +50,11 @@ const NAV_ITEMS = [
 		label: 'Readiness',
 		href: (eventId) => `/events/${eventId}/vapp/admin/readiness`,
 		icon: CheckCircle2,
+	},
+	{
+		label: 'Settings',
+		href: (eventId) => `/events/${eventId}/vapp/admin/settings`,
+		icon: Sliders,
 	},
 	// Request Configuration Entities
 	{

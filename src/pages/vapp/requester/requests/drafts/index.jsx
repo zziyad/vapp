@@ -3,14 +3,14 @@ import { useParams } from 'react-router-dom'
 import { isValidUUID } from '@/lib/utils/uuid'
 import Container from '@/components/layout/Container'
 import { RequesterSidebar } from '@/components/vapp/requester/RequesterSidebar'
-import { RequesterDashboard } from '@/components/vapp/requester/dashboard/RequesterDashboard'
+import { DraftsList } from '@/components/vapp/requester/requests/DraftsList'
 import { VappPageHeader } from '@/components/vapp/shared/navigation/VappPageHeader'
 
 /**
- * Requester Dashboard Page
- * Main dashboard for Requester Portal
+ * Drafts Page (Requester Portal)
+ * List of draft requests
  */
-export default function RequesterDashboardPage() {
+export default function DraftsPage() {
   const params = useParams()
   const eventId = useMemo(
     () => (Array.isArray(params?.eventId) ? params.eventId[0] : params?.eventId),
@@ -32,10 +32,10 @@ export default function RequesterDashboardPage() {
 
   return (
     <Container className="py-6">
-      <VappPageHeader
+      <VappPageHeader 
         eventId={eventId}
-        pageTitle="Dashboard"
-        pageDescription="Overview of your access requests"
+        pageTitle="Drafts"
+        pageDescription="Continue editing your draft requests"
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -44,7 +44,7 @@ export default function RequesterDashboardPage() {
         </div>
 
         <div className="lg:col-span-3">
-          <RequesterDashboard eventId={eventId} />
+          <DraftsList eventId={eventId} />
         </div>
       </div>
     </Container>
