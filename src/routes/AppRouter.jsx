@@ -1,12 +1,28 @@
+import { Suspense } from 'react'
 import { Routes, Route, Navigate, Link } from 'react-router-dom'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import { routes } from './routes.config'
+
+/**
+ * Loading fallback component for lazy-loaded routes
+ */
+function RouteLoadingFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="text-center space-y-4">
+        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+        <p className="text-sm text-muted-foreground">Loading...</p>
+      </div>
+    </div>
+  )
+}
 
 /**
  * Application Router Component
  * 
  * Automatically generates routes from the routes configuration.
  * Handles protected routes, redirects, and 404 pages.
+ * Uses Suspense for lazy-loaded components with code splitting.
  */
 export default function AppRouter() {
   return (
@@ -27,8 +43,14 @@ export default function AppRouter() {
         const Layout = route.layout
         if (!Component) return null
 
-        // Create element with optional layout wrapper
-        let element = <Component />
+        // Create element with Suspense wrapper for lazy loading
+        let element = (
+          <Suspense fallback={<RouteLoadingFallback />}>
+            <Component />
+          </Suspense>
+        )
+        
+        // Wrap with layout if provided
         if (Layout) {
           element = <Layout>{element}</Layout>
         }

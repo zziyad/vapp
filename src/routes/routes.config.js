@@ -4,46 +4,51 @@
  * Define all application routes in one place for easy management.
  * Each route can specify:
  * - path: URL path
- * - component: Component to render
+ * - component: Component to render (can be lazy-loaded)
  * - protected: Whether route requires authentication (default: false)
  * - redirect: Redirect to another path (optional)
  * - layout: Custom layout component (optional)
  * - meta: Additional metadata (title, description, etc.)
+ * 
+ * NOTE: Components are lazy-loaded for code splitting and better performance.
+ * Only the layout component (VappLayout) is eagerly loaded as it's used frequently.
  */
 
-// Import page components
-import Login from '@/pages/auth/Login'
-import Events from '@/pages/Events'
-import EventDetail from '@/pages/EventDetail/index.jsx'
-import TransportDemo from '@/pages/TransportDemo'
-import DebugAuth from '@/pages/DebugAuth'
-import FileManager from '@/pages/FileManager'
-import VappRoot from '@/pages/vapp/VappRoot'
-import OpsDashboard from '@/pages/vapp/OpsDashboard'
-import RequesterDashboard from '@/pages/vapp/RequesterDashboard'
-import RequesterRequestsPage from '@/pages/vapp/requester/requests/index.jsx'
-import RequesterDraftsPage from '@/pages/vapp/requester/requests/drafts/index.jsx'
-import RequesterRequestDetailPage from '@/pages/vapp/requester/requests/[requestId]/index.jsx'
-import RequesterNeedInfoPage from '@/pages/vapp/requester/need-info/index.jsx'
-import RequesterNotificationsPage from '@/pages/vapp/requester/notifications/index.jsx'
-import CreateRequestPage from '@/pages/vapp/requester/requests/new/index.jsx'
-import AdminDashboard from '@/pages/vapp/admin/AdminDashboard'
-import SectorsPage from '@/pages/vapp/admin/sectors/index.jsx'
-import FunctionalAreasPage from '@/pages/vapp/admin/functional-areas/index.jsx'
-import VehicleTypesPage from '@/pages/vapp/admin/vehicle-types/index.jsx'
-import AccessZonesPage from '@/pages/vapp/admin/access-zones/index.jsx'
-import AccessTypesPage from '@/pages/vapp/admin/access-types/index.jsx'
-import ValidityPage from '@/pages/vapp/admin/validity/index.jsx'
-import ImportancePage from '@/pages/vapp/admin/importance/index.jsx'
-import PermitTypesPage from '@/pages/vapp/admin/permit-types/index.jsx'
-import EventSetupPage from '@/pages/vapp/admin/event/index.jsx'
-import RBACPage from '@/pages/vapp/admin/rbac/index.jsx'
-import ReadinessPage from '@/pages/vapp/admin/readiness/index.jsx'
-import SerialNumbersPage from '@/pages/vapp/admin/serial-numbers/index.jsx'
-import SettingsPage from '@/pages/vapp/admin/settings/index.jsx'
-import PagesIndex from '@/pages/PagesIndex/index.jsx'
+import { lazy } from 'react'
 import VappLayout from '@/components/layout/VappLayout'
-// import Home from '@/pages/Home'
+
+// Lazy load page components for code splitting
+const Login = lazy(() => import('@/pages/auth/Login'))
+const Events = lazy(() => import('@/pages/Events'))
+const EventDetail = lazy(() => import('@/pages/EventDetail/index.jsx'))
+const TransportDemo = lazy(() => import('@/pages/TransportDemo'))
+const DebugAuth = lazy(() => import('@/pages/DebugAuth'))
+const FileManager = lazy(() => import('@/pages/FileManager'))
+const VappRoot = lazy(() => import('@/pages/vapp/VappRoot'))
+const OpsDashboard = lazy(() => import('@/pages/vapp/OpsDashboard'))
+const RequesterDashboard = lazy(() => import('@/pages/vapp/RequesterDashboard'))
+const RequesterRequestsPage = lazy(() => import('@/pages/vapp/requester/requests/index.jsx'))
+const RequesterDraftsPage = lazy(() => import('@/pages/vapp/requester/requests/drafts/index.jsx'))
+const RequesterRequestDetailPage = lazy(() => import('@/pages/vapp/requester/requests/[requestId]/index.jsx'))
+const RequesterNeedInfoPage = lazy(() => import('@/pages/vapp/requester/need-info/index.jsx'))
+const RequesterNotificationsPage = lazy(() => import('@/pages/vapp/requester/notifications/index.jsx'))
+const CreateRequestPage = lazy(() => import('@/pages/vapp/requester/requests/new/index.jsx'))
+const AdminDashboard = lazy(() => import('@/pages/vapp/admin/AdminDashboard'))
+const SectorsPage = lazy(() => import('@/pages/vapp/admin/sectors/index.jsx'))
+const FunctionalAreasPage = lazy(() => import('@/pages/vapp/admin/functional-areas/index.jsx'))
+const VehicleTypesPage = lazy(() => import('@/pages/vapp/admin/vehicle-types/index.jsx'))
+const AccessZonesPage = lazy(() => import('@/pages/vapp/admin/access-zones/index.jsx'))
+const AccessTypesPage = lazy(() => import('@/pages/vapp/admin/access-types/index.jsx'))
+const ValidityPage = lazy(() => import('@/pages/vapp/admin/validity/index.jsx'))
+const ImportancePage = lazy(() => import('@/pages/vapp/admin/importance/index.jsx'))
+const PermitTypesPage = lazy(() => import('@/pages/vapp/admin/permit-types/index.jsx'))
+const EventSetupPage = lazy(() => import('@/pages/vapp/admin/event/index.jsx'))
+const RBACPage = lazy(() => import('@/pages/vapp/admin/rbac/index.jsx'))
+const ReadinessPage = lazy(() => import('@/pages/vapp/admin/readiness/index.jsx'))
+const SerialNumbersPage = lazy(() => import('@/pages/vapp/admin/serial-numbers/index.jsx'))
+const SettingsPage = lazy(() => import('@/pages/vapp/admin/settings/index.jsx'))
+const PagesIndex = lazy(() => import('@/pages/PagesIndex/index.jsx'))
+// const Home = lazy(() => import('@/pages/Home'))
 
 /**
  * Routes Configuration
