@@ -93,6 +93,8 @@ const MemoVehiclesSection = memo(function MemoVehiclesSection({
   isEditable,
   saving,
   savingDraft,
+  mode,
+  request,
 }) {
   const canEdit = isEditable && !saving && !savingDraft
 
@@ -129,15 +131,18 @@ const MemoVehiclesSection = memo(function MemoVehiclesSection({
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <Label>Vehicles *</Label>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={!canEdit}
-          onClick={handleAddVehicle}
-        >
-          + Add Vehicle
-        </Button>
+        {/* Hide "Add Vehicle" button when editing a submitted request */}
+        {!(mode === 'edit' && request?.status === 'submitted') && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!canEdit}
+            onClick={handleAddVehicle}
+          >
+            + Add Vehicle
+          </Button>
+        )}
       </div>
 
       <div className="space-y-4">
@@ -1240,6 +1245,8 @@ export function RequesterAccessRequestForm({ eventId, requestId, mode = 'create'
           isEditable={isEditable}
           saving={saving}
           savingDraft={savingDraft}
+          mode={mode}
+          request={request}
         />
 
         {/* Global justification removed - each vehicle now has its own justification field */}
