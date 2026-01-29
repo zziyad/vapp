@@ -47,6 +47,15 @@ const RBACPage = lazy(() => import('@/pages/vapp/admin/rbac/index.jsx'))
 const ReadinessPage = lazy(() => import('@/pages/vapp/admin/readiness/index.jsx'))
 const SerialNumbersPage = lazy(() => import('@/pages/vapp/admin/serial-numbers/index.jsx'))
 const SettingsPage = lazy(() => import('@/pages/vapp/admin/settings/index.jsx'))
+const OpsIndexPage = lazy(() => import('@/pages/vapp/ops/index.jsx'))
+const ReviewQueuePage = lazy(() => import('@/pages/vapp/ops/review/queue/index.jsx'))
+const ReviewRequestsPage = lazy(() => import('@/pages/vapp/ops/review/requests/index.jsx'))
+const ReviewNeedInfoPage = lazy(() => import('@/pages/vapp/ops/review/need-info/index.jsx'))
+const ApprovedRequestsPage = lazy(() => import('@/pages/vapp/ops/review/approved/index.jsx'))
+const RejectedRequestsPage = lazy(() => import('@/pages/vapp/ops/review/rejected/index.jsx'))
+const OpsReviewDetailPage = lazy(() => import('@/pages/vapp/ops/review/[requestId]/index.jsx'))
+const PermitGeneratePage = lazy(() => import('@/pages/vapp/ops/permits/generate/index.jsx'))
+const QrAssignmentPage = lazy(() => import('@/pages/vapp/ops/permits/qr/index.jsx'))
 const PagesIndex = lazy(() => import('@/pages/PagesIndex/index.jsx'))
 // const Home = lazy(() => import('@/pages/Home'))
 
@@ -242,6 +251,86 @@ export const routes = [
     },
   },
   {
+    path: '/events/:eventId/vapp/ops/review/:requestId',
+    component: OpsReviewDetailPage,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'Review Request',
+      description: 'Review and make decisions on access requests',
+    },
+  },
+  {
+    path: '/events/:eventId/vapp/ops/review/requests',
+    component: ReviewRequestsPage,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'Review Requests',
+      description: 'View approved, rejected, and requests needing information',
+    },
+  },
+  {
+    path: '/events/:eventId/vapp/ops/review/queue',
+    component: ReviewQueuePage,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'Review Queue',
+      description: 'Review and process access requests',
+    },
+  },
+  {
+    path: '/events/:eventId/vapp/ops/review/need-info',
+    component: ReviewNeedInfoPage,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'Need Info Queue',
+      description: 'Requests waiting for requester response',
+    },
+  },
+  {
+    path: '/events/:eventId/vapp/ops/review/approved',
+    component: ApprovedRequestsPage,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'Approved Requests',
+      description: 'Requests that have been approved and are ready for permit generation',
+    },
+  },
+  {
+    path: '/events/:eventId/vapp/ops/review/rejected',
+    component: RejectedRequestsPage,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'Rejected Requests',
+      description: 'Requests that have been rejected',
+    },
+  },
+  {
+    path: '/events/:eventId/vapp/ops/permits/generate',
+    component: PermitGeneratePage,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'Generate Permits',
+      description: 'Generate permits from approved access requests with serial number assignment',
+    },
+  },
+  {
+    path: '/events/:eventId/vapp/ops/permits/qr',
+    component: QrAssignmentPage,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'QR Assignment & Print',
+      description: 'Assign QR codes to permits and manage printing',
+    },
+  },
+  {
     path: '/events/:eventId/vapp/ops/dashboard',
     component: OpsDashboard,
     protected: true,
@@ -249,6 +338,16 @@ export const routes = [
     meta: {
       title: 'VAPP Ops Dashboard',
       description: 'Operations dashboard',
+    },
+  },
+  {
+    path: '/events/:eventId/vapp/ops',
+    component: OpsIndexPage,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'VAPP Ops',
+      description: 'Operations Console',
     },
   },
   {

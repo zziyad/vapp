@@ -29,18 +29,8 @@ const NAV_ITEMS = [
         permission: PERMISSIONS.VAPP.REVIEW.READ,
       },
       {
-        label: "Need Info",
-        href: (eventId) => `/events/${eventId}/vapp/ops/review/need-info`,
-        permission: PERMISSIONS.VAPP.REVIEW.READ,
-      },
-      {
-        label: "Approved",
-        href: (eventId) => `/events/${eventId}/vapp/ops/review/approved`,
-        permission: PERMISSIONS.VAPP.REVIEW.READ,
-      },
-      {
-        label: "Rejected",
-        href: (eventId) => `/events/${eventId}/vapp/ops/review/rejected`,
+        label: "Review Requests",
+        href: (eventId) => `/events/${eventId}/vapp/ops/review/requests`,
         permission: PERMISSIONS.VAPP.REVIEW.READ,
       },
     ],
@@ -52,6 +42,11 @@ const NAV_ITEMS = [
       {
         label: "Generate Permits",
         href: (eventId) => `/events/${eventId}/vapp/ops/permits/generate`,
+        permission: PERMISSIONS.VAPP.PERMIT.GENERATE,
+      },
+      {
+        label: "QR Assignment & Print",
+        href: (eventId) => `/events/${eventId}/vapp/ops/permits/qr`,
         permission: PERMISSIONS.VAPP.PERMIT.GENERATE,
       },
       {

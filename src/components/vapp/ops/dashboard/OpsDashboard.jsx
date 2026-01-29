@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useTransport } from "@/contexts/TransportContext";
-import { vappDashboardApi } from "@/lib/services/vapp/vapp-api-service";
+import { getDashboardAggregate } from "@/aggregates/dashboard/get-dashboard-aggregate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ import { ClipboardList, FileCheck, QrCode, Search } from "lucide-react";
 import { usePermissions, PERMISSIONS } from "@/components/permissions";
 
 export function OpsDashboard({ eventId }) {
-  const { client, wsConnected } = useTransport();
+  const { client } = useTransport();
   const { can } = usePermissions();
   const navigate = useNavigate();
 
@@ -33,39 +33,50 @@ export function OpsDashboard({ eventId }) {
   });
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const isLoadingRef = useRef(false);
 
   const canReview = can(PERMISSIONS.VAPP.REVIEW.READ);
   const canListPermits = can(PERMISSIONS.VAPP.PERMIT.LIST);
 
+  // Create dashboard aggregate
+  const aggregate = useMemo(() => {
+    if (!client || !eventId) return null;
+    return getDashboardAggregate(eventId, client);
+  }, [client, eventId]);
+
+  // Subscribe to dashboard state changes
   useEffect(() => {
-    if (!wsConnected || !eventId || !client?.wsTransport || isLoadingRef.current) return;
+    if (!aggregate?.dashboard) return;
 
-    const call = client.wsTransport.call.bind(client.wsTransport);
-
-    const loadStats = async () => {
-      isLoadingRef.current = true;
-      try {
-        setLoading(true);
-        const result = await vappDashboardApi.stats(call, eventId);
-        const s = result?.response || {};
-
+    const unsubscribe = aggregate.dashboard.subscribe((state) => {
+      if (state) {
+        const s = state.stats || {};
         setStats((prev) => ({
           ...prev,
           review: canReview ? (s.review || prev.review) : prev.review,
           permits: canListPermits ? (s.permits || prev.permits) : prev.permits,
           checkpoint: s.checkpoint || prev.checkpoint,
         }));
+        setLoading(state.statsLoading || false);
+      }
+    });
+
+    return unsubscribe;
+  }, [aggregate, canReview, canListPermits]);
+
+  // Load dashboard stats
+  useEffect(() => {
+    if (!aggregate?.dashboard || !eventId) return;
+
+    const loadStats = async () => {
+      try {
+        await aggregate.dashboard.stats(eventId);
       } catch (error) {
         console.error("Failed to load dashboard stats:", error);
-      } finally {
-        setLoading(false);
-        isLoadingRef.current = false;
       }
     };
 
     loadStats();
-  }, [wsConnected, eventId, client, canReview, canListPermits]);
+  }, [aggregate, eventId]);
 
   const handleSearch = () => {
     if (searchQuery.trim()) {

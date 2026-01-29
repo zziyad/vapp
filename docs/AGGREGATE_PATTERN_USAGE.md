@@ -20,6 +20,12 @@ The **Aggregate Pattern** is the **default** data fetching pattern for:
    - Uses `getEventAggregate(null, client)` for list view
    - Aggregate pattern with subscriptions
 
+3. **OpsDashboard** (`/events/:eventId/vapp/ops/dashboard`)
+   - Uses `getDashboardAggregate(eventId, client)`
+   - Subscribes to dashboard stats state changes
+   - Reactive updates
+   - Location: `components/vapp/ops/dashboard/OpsDashboard.jsx`
+
 ### ⚠️ Should Use Aggregate Pattern (Currently Direct Calls)
 
 1. **AdminDashboard** (`/events/:eventId/vapp/admin/dashboard`)
@@ -27,12 +33,7 @@ The **Aggregate Pattern** is the **default** data fetching pattern for:
    - Should be converted to aggregate pattern
    - Location: `components/vapp/admin/dashboard/AdminDashboard.jsx`
 
-2. **OpsDashboard** (`/events/:eventId/vapp/ops/dashboard`)
-   - Component uses direct `wsTransport.call()`
-   - Should use aggregate pattern
-   - Location: `components/vapp/ops/dashboard/OpsDashboard.jsx`
-
-3. **RequesterDashboard** (`/events/:eventId/vapp/requester/dashboard`)
+2. **RequesterDashboard** (`/events/:eventId/vapp/requester/dashboard`)
    - Component uses direct `wsTransport.call()`
    - Should use aggregate pattern
    - Location: `components/vapp/requester/dashboard/RequesterDashboard.jsx`
@@ -82,27 +83,42 @@ export default function EventDetail() {
 
 ## Creating New Aggregates
 
-To create a new aggregate for VAPP config:
+To create a new aggregate (example: Dashboard):
 
-1. Create aggregate file: `aggregates/vapp-config/create-vapp-config-aggregate.js`
-2. Create module: `aggregates/vapp-config/modules/create-config-module.js`
-3. Export getter: `aggregates/vapp-config/get-vapp-config-aggregate.js`
+1. Create module: `aggregates/dashboard/modules/create-dashboard-module.js`
+2. Create aggregate file: `aggregates/dashboard/create-dashboard-aggregate.js`
+3. Export getter: `aggregates/dashboard/get-dashboard-aggregate.js`
 4. Use in components:
 
 ```javascript
-import { getVappConfigAggregate } from '@/aggregates/vapp-config/get-vapp-config-aggregate'
+import { getDashboardAggregate } from '@/aggregates/dashboard/get-dashboard-aggregate'
 
 const aggregate = useMemo(() => {
-  if (!client) return null
-  return getVappConfigAggregate(eventId, client)
+  if (!client || !eventId) return null
+  return getDashboardAggregate(eventId, client)
 }, [client, eventId])
+
+// Subscribe to state changes
+useEffect(() => {
+  if (!aggregate?.dashboard) return
+  return aggregate.dashboard.subscribe((state) => {
+    setStats(state.stats)
+    setLoading(state.statsLoading)
+  })
+}, [aggregate])
+
+// Load data
+useEffect(() => {
+  if (!aggregate?.dashboard || !eventId) return
+  aggregate.dashboard.stats(eventId)
+}, [aggregate, eventId])
 ```
 
 ## Migration Plan
 
 1. ✅ EventDetail - Already using aggregate
-2. ⏳ AdminDashboard - Convert to aggregate
-3. ⏳ OpsDashboard - Convert to aggregate  
+2. ✅ OpsDashboard - Using dashboard aggregate pattern
+3. ⏳ AdminDashboard - Convert to aggregate
 4. ⏳ RequesterDashboard - Convert to aggregate
 
 ## Pages Index

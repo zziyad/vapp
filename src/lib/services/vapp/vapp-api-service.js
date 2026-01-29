@@ -32,6 +32,14 @@ export const vappConfigApi = {
       return await call('vapp.config.permitType.toggleActive', { event_id: eventId, permit_type_id: permitTypeId })
     },
   },
+  permitTypeSubtype: {
+    list: async (call, eventId, permitTypeId) => {
+      return await call('vapp.config.permitTypeSubtype.list', { 
+        event_id: eventId, 
+        permit_type_id: permitTypeId 
+      })
+    },
+  },
 };
 
 export const vappAccessRequestApi = {
@@ -102,5 +110,109 @@ export const vappAccessRequestApi = {
         ...(options || {}),
       })
     },
+  },
+};
+
+/**
+ * VAPP Review API methods (Domain C)
+ */
+export const vappReviewApi = {
+  listQueue: async (call, eventId, filters = {}) => {
+    return await call('vapp.review.listQueue', {
+      event_id: eventId,
+      ...filters,
+    })
+  },
+
+  getBundle: async (call, eventId, requestId) => {
+    return await call('vapp.review.getBundle', {
+      event_id: eventId,
+      request_id: requestId,
+    })
+  },
+
+  markUnderReview: async (call, eventId, requestId) => {
+    return await call('vapp.review.markUnderReview', {
+      event_id: eventId,
+      request_id: requestId,
+    })
+  },
+
+  needInfo: async (call, eventId, requestId, message) => {
+    return await call('vapp.review.needInfo', {
+      event_id: eventId,
+      request_id: requestId,
+      message,
+    })
+  },
+
+  approve: async (call, eventId, requestId, reason) => {
+    return await call('vapp.review.approve', {
+      event_id: eventId,
+      request_id: requestId,
+      reason,
+    })
+  },
+
+  reject: async (call, eventId, requestId, reason) => {
+    return await call('vapp.review.reject', {
+      event_id: eventId,
+      request_id: requestId,
+      reason,
+    })
+  },
+
+  partialApprove: async (call, eventId, requestId, data) => {
+    return await call('vapp.review.partialApprove', {
+      event_id: eventId,
+      request_id: requestId,
+      ...data,
+    })
+  },
+
+  validateMatrix: async (call, eventId, requestId) => {
+    return await call('vapp.review.validateMatrix', {
+      event_id: eventId,
+      request_id: requestId,
+    })
+  },
+
+  bulkApprove: async (call, eventId, requestIds, reason) => {
+    return await call('vapp.review.bulkApprove', {
+      event_id: eventId,
+      request_ids: requestIds,
+      reason: reason || null,
+    })
+  },
+};
+
+/**
+ * VAPP Permit API methods (Domain D)
+ */
+export const vappPermitApi = {
+  generate: async (call, eventId, requestId, data) => {
+    return await call('vapp.permit.generate', {
+      event_id: eventId,
+      request_id: requestId,
+      ...data,
+    })
+  },
+  assignQr: async (call, eventId, permitIds) => {
+    return await call('vapp.permit.assignQr', {
+      event_id: eventId,
+      permit_ids: permitIds,
+    });
+  },
+  list: async (call, filters = {}) => {
+    return await call('vapp.permit.list', filters);
+  },
+  serialPoolListAvailable: async (call, eventId, permitTypeId, subtypeCode = null, options = {}) => {
+    return await call('vapp.permit.serialPoolListAvailable', {
+      event_id: eventId,
+      permit_type_id: permitTypeId,
+      subtype_code: subtypeCode,
+      limit: options.limit || 200,
+      offset: options.offset || 0,
+    })
   },
 };
