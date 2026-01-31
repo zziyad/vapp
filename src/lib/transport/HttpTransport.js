@@ -26,6 +26,7 @@ export class HttpTransport extends Transport {
    * Make HTTP RPC call
    */
   async call(method, args = {}) {
+    console.log('[HttpTransport] Making call', { method, url: this.url });
     const doRequest = async (requestArgs) => {
       const id = this.generateId();
       const packet = {
@@ -35,6 +36,7 @@ export class HttpTransport extends Transport {
         args: requestArgs,
       };
 
+      console.log('[HttpTransport] Sending request', { method, url: this.url, packetId: id });
       const response = await fetch(this.url, {
         method: 'POST',
         headers: this.options.headers,
@@ -43,11 +45,14 @@ export class HttpTransport extends Transport {
       });
 
       const text = await response.text();
+      console.log('[HttpTransport] Response received', { method, status: response.status, statusText: response.statusText, textLength: text.length });
       if (!text || text.trim().length === 0) {
+        console.error('[HttpTransport] Empty response from server');
         throw new Error('Empty response from server');
       }
 
       const data = JSON.parse(text);
+      console.log('[HttpTransport] Parsed response', { method, hasError: !!data.error, hasResult: !!data.result });
       return { response, data };
     };
 

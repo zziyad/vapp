@@ -17,30 +17,55 @@ export function TransportProvider({ children }) {
   const clientRef = useRef(null);
 
   useEffect(() => {
+    // Runtime detection based on current hostname (works even with baked-in build URLs)
+    const currentHostname = typeof window !== 'undefined' ? window.location.hostname : '';
+    const currentProtocol = typeof window !== 'undefined' ? window.location.protocol : 'https:';
+    const isHttps = currentProtocol === 'https:';
+    const isLocalhost = currentHostname === 'localhost' || currentHostname === '127.0.0.1';
+    
     // Toggle: Set VITE_USE_LOCAL=true in .env to force localhost, false or unset for production
-    // If VITE_USE_LOCAL is not set, auto-detect based on hostname
-    const forceLocal = import.meta.env.VITE_USE_LOCAL === 'true';
-    const forceProduction = import.meta.env.VITE_USE_LOCAL === 'false';
-    const autoDetectLocal = typeof window !== 'undefined' && 
-      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    // Vite bakes env vars at build time, so we check the string value
+    const envUseLocal = import.meta.env.VITE_USE_LOCAL;
+    const forceLocal = envUseLocal === 'true' || envUseLocal === true;
+    const forceProduction = envUseLocal === 'false' || envUseLocal === false;
     
-    const useLocal = forceLocal || (!forceProduction && autoDetectLocal);
+    // Runtime detection: use localhost only if forced OR (not forced to production AND actually on localhost)
+    const useLocal = forceLocal || (!forceProduction && isLocalhost);
     
-    // Create transport client
-    const apiUrl = useLocal
-      ? (import.meta.env.VITE_API_URL_LOCAL || 'http://localhost:8005') + '/api'
-      : (import.meta.env.VITE_API_URL || 'https://ts-int.digital') + '/api';
-    
-    const wsUrl = useLocal
-      ? (import.meta.env.VITE_WS_URL_LOCAL || 'ws://localhost:8005/ws')
-      : (import.meta.env.VITE_WS_URL || 'wss://ts-int.digital/ws');
+    // Create transport client - ALWAYS use current origin for production (runtime detection)
+    let apiUrl, wsUrl;
+    if (useLocal) {
+      // Local development
+      apiUrl = (import.meta.env.VITE_API_URL_LOCAL || 'http://localhost:8005') + '/api';
+      wsUrl = (import.meta.env.VITE_WS_URL_LOCAL || 'ws://localhost:8005/ws');
+    } else {
+      // Production: ALWAYS use current origin (runtime detection, not baked-in URLs)
+      if (typeof window !== 'undefined') {
+        const origin = window.location.origin;
+        apiUrl = `${origin}/api`;
+        wsUrl = isHttps ? `${origin.replace('https://', 'wss://')}/ws` : `${origin.replace('http://', 'ws://')}/ws`;
+      } else {
+        // Fallback to env vars if window is not available (SSR)
+        apiUrl = (import.meta.env.VITE_API_URL || 'https://ts-int.digital') + '/api';
+        wsUrl = (import.meta.env.VITE_WS_URL || 'wss://ts-int.digital/ws');
+      }
+    }
     
     // Ensure production uses wss:// (secure WebSocket)
     const finalWsUrl = !useLocal && wsUrl.startsWith('ws://') 
       ? wsUrl.replace('ws://', 'wss://')
       : wsUrl;
     
-    console.log('[Transport] Mode:', useLocal ? 'LOCAL' : 'PRODUCTION', { apiUrl, wsUrl: finalWsUrl });
+    console.log('[Transport] Config:', { 
+      envUseLocal,
+      forceLocal,
+      forceProduction,
+      isLocalhost,
+      useLocal,
+      hostname: currentHostname,
+      apiUrl, 
+      wsUrl: finalWsUrl 
+    });
     
     const transportClient = new Client({
       apiUrl,
