@@ -39,11 +39,26 @@ export function VappPageHeader({ eventId, pageTitle, pageDescription }) {
   useEffect(() => {
     if (!eventAggregate?.events || !eventId) return;
 
-    const loadEvent = async () => {
+    const loadEvent = async (retryCount = 0) => {
       try {
         await eventAggregate.events.detail(eventId);
       } catch (err) {
-        console.error("Failed to load event:", err);
+        // Check if it's a WebSocket connection error
+        const isConnectionError = err?.target || 
+          (err?.message && (err.message.includes('WebSocket') || err.message.includes('Connection')));
+        
+        if (isConnectionError) {
+          // Retry on connection errors (max 2 retries)
+          if (retryCount < 2) {
+            console.log(`[VappPageHeader] Retrying loadEvent (attempt ${retryCount + 1})...`);
+            setTimeout(() => loadEvent(retryCount + 1), 1000 * (retryCount + 1));
+            return;
+          }
+          // Silently fail after retries - this is non-critical (just deadline config)
+          console.warn("[VappPageHeader] Failed to load event after retries (connection error)");
+        } else {
+          console.error("Failed to load event:", err);
+        }
       }
     };
 
@@ -92,7 +107,16 @@ export function VappPageHeader({ eventId, pageTitle, pageDescription }) {
           setActiveRequest(null);
         }
       } catch (err) {
-        console.error('Failed to load requests for countdown:', err);
+        // Check if it's a WebSocket connection error
+        const isConnectionError = err?.target || 
+          (err?.message && (err.message.includes('WebSocket') || err.message.includes('Connection')));
+        
+        if (isConnectionError) {
+          // Silently fail - this is non-critical (just countdown timer)
+          console.warn('[VappPageHeader] Failed to load requests for countdown (connection error)');
+        } else {
+          console.error('Failed to load requests for countdown:', err);
+        }
       }
     };
 

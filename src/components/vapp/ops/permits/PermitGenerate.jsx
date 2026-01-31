@@ -8,6 +8,7 @@ import { vappAccessRequestApi, vappConfigApi, vappPermitApi } from "@/lib/servic
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
@@ -40,7 +41,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { FileText, Search, RefreshCw, CheckCircle, AlertCircle, Info, Loader2, FileDown } from "lucide-react";
+import { FileText, Search, RefreshCw, CheckCircle, AlertCircle, Info, Loader2, FileDown, Send, CheckSquare } from "lucide-react";
 import { toast } from "sonner";
 import StatusBadge from "@/components/vapp/shared/StatusBadge";
 import { createVappTemplatePdf } from "@/lib/utils/simplePdf";
@@ -185,7 +186,15 @@ export function PermitGenerate({ eventId }) {
         console.warn("Failed to load permit types:", res);
       }
     } catch (error) {
-      console.error("Failed to load permit types:", error);
+      // Check if it's a WebSocket connection error
+      const isConnectionError = error?.target || 
+        (error?.message && (error.message.includes('WebSocket') || error.message.includes('Connection')));
+      
+      if (isConnectionError) {
+        console.warn("Failed to load permit types (connection error)");
+      } else {
+        console.error("Failed to load permit types:", error);
+      }
     }
   }, [eventId, client]);
 
@@ -424,12 +433,32 @@ export function PermitGenerate({ eventId }) {
     );
   }, [approvedRequests, searchQuery]);
 
-  // Selection handlers
+  // Unified selection - only track requests, permits are derived from selected requests
   const [selectedRequests, setSelectedRequests] = useState(new Set());
+  
+  // Get all permits from selected requests
+  const selectedPermits = useMemo(() => {
+    const permitIds = new Set();
+    selectedRequests.forEach(requestId => {
+      const requestPermits = permitsByRequest.get(requestId) || [];
+      requestPermits.forEach(permit => permitIds.add(permit.id));
+    });
+    return permitIds;
+  }, [selectedRequests, permitsByRequest]);
   
   // Request details drawer
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedRequestId, setSelectedRequestId] = useState(null);
+  
+  // Terms management dialog
+  const [termsDialogOpen, setTermsDialogOpen] = useState(false);
+  const [termsAction, setTermsAction] = useState(null); // 'send' or 'mark'
+  const [markAcceptedForm, setMarkAcceptedForm] = useState({
+    accepted_by_name: '',
+    accepted_at: new Date().toISOString().slice(0, 16), // YYYY-MM-DDTHH:mm format
+    notes: '',
+  });
+  const [processingTerms, setProcessingTerms] = useState(false);
 
   const handleSelectAll = useCallback(
     (checked) => {
@@ -461,6 +490,18 @@ export function PermitGenerate({ eventId }) {
     }
     openGenerate(Array.from(selectedRequests));
   }, [selectedRequests, openGenerate]);
+
+  // Permit selection is now derived from request selection - no separate handlers needed
+
+  // Open terms management dialog
+  const handleOpenTermsDialog = useCallback((action) => {
+    if (selectedPermits.size === 0) {
+      toast.error("Select at least one request with permits");
+      return;
+    }
+    setTermsAction(action);
+    setTermsDialogOpen(true);
+  }, [selectedPermits]);
 
   // Load permits for approved requests
   const loadPermits = useCallback(async () => {
@@ -513,6 +554,76 @@ export function PermitGenerate({ eventId }) {
     }
   }, [eventId, client, approvedRequests]);
 
+  // Send terms handler (defined after loadPermits)
+  const handleSendTerms = useCallback(async () => {
+    if (!client || !eventId || selectedPermits.size === 0) {
+      toast.error("Select at least one request with permits");
+      return;
+    }
+
+    setProcessingTerms(true);
+    try {
+      const call = (method, payload) => client.call(method, payload);
+      const result = await vappPermitApi.sendTerms(call, eventId, Array.from(selectedPermits));
+
+      if (result?.status === 'fulfilled') {
+        toast.success(`Terms sent to ${result.response.sent_count} permit${result.response.sent_count !== 1 ? 's' : ''}`);
+        setSelectedRequests(new Set()); // Clear request selection
+        setTermsDialogOpen(false);
+        // Reload permits to update status
+        await loadPermits();
+      } else {
+        toast.error(result?.response?.message || 'Failed to send terms');
+      }
+    } catch (err) {
+      console.error('Failed to send terms:', err);
+      toast.error(err?.message || 'Failed to send terms');
+    } finally {
+      setProcessingTerms(false);
+    }
+  }, [client, eventId, selectedPermits, loadPermits]);
+
+  // Mark terms as accepted handler (defined after loadPermits)
+  const handleMarkTermsAccepted = useCallback(async () => {
+    if (!client || !eventId || selectedPermits.size === 0) {
+      toast.error("Select at least one request with permits");
+      return;
+    }
+    if (!markAcceptedForm.accepted_by_name.trim()) {
+      toast.error("Accepted by name is required");
+      return;
+    }
+
+    setProcessingTerms(true);
+    try {
+      const call = (method, payload) => client.call(method, payload);
+      const result = await vappPermitApi.markTermsAccepted(call, eventId, Array.from(selectedPermits), {
+        accepted_by_name: markAcceptedForm.accepted_by_name.trim(),
+        accepted_at: markAcceptedForm.accepted_at ? new Date(markAcceptedForm.accepted_at).toISOString() : undefined,
+        notes: markAcceptedForm.notes.trim() || undefined,
+      });
+
+      if (result?.status === 'fulfilled') {
+        toast.success(`Terms marked as accepted for ${result.response.accepted_count} permit${result.response.accepted_count !== 1 ? 's' : ''}`);
+        setSelectedRequests(new Set()); // Clear request selection
+        setTermsDialogOpen(false);
+        setMarkAcceptedForm({
+          accepted_by_name: '',
+          accepted_at: new Date().toISOString().slice(0, 16),
+          notes: '',
+        });
+        // Reload permits to update status
+        await loadPermits();
+      } else {
+        toast.error(result?.response?.message || 'Failed to mark terms as accepted');
+      }
+    } catch (err) {
+      console.error('Failed to mark terms as accepted:', err);
+      toast.error(err?.message || 'Failed to mark terms as accepted');
+    } finally {
+      setProcessingTerms(false);
+    }
+  }, [client, eventId, selectedPermits, markAcceptedForm, loadPermits]);
 
   // Load permits when approved requests change
   useEffect(() => {
@@ -723,10 +834,18 @@ export function PermitGenerate({ eventId }) {
                 />
               </div>
               {selectedRequests.size > 0 && (
-                <Button onClick={handleBulkGenerate} size="sm">
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Generate {selectedRequests.size} Permit{selectedRequests.size !== 1 ? "s" : ""}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button onClick={handleBulkGenerate} size="sm">
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Generate {selectedRequests.size} Permit{selectedRequests.size !== 1 ? "s" : ""}
+                  </Button>
+                  {selectedPermits.size > 0 && (
+                    <Button onClick={() => handleOpenTermsDialog(null)} size="sm" variant="outline">
+                      <CheckSquare className="h-4 w-4 mr-2" />
+                      Manage Terms ({selectedPermits.size})
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
 
@@ -804,7 +923,28 @@ export function PermitGenerate({ eventId }) {
                             </button>
                           </TableCell>
                           <TableCell>
-                            <StatusBadge status={request.status} />
+                            {hasPermits ? (
+                              // Show terms status from permits (use the most restrictive status)
+                              (() => {
+                                const permitStatuses = requestPermits.map(p => {
+                                  const stage = p.meta?.lifecycle?.stage || 'pending_terms_acceptance';
+                                  return stage;
+                                });
+                                // If any permit is pending, show pending; otherwise show accepted
+                                const hasPending = permitStatuses.some(s => s === 'pending_terms_acceptance');
+                                const hasAccepted = permitStatuses.some(s => s === 'terms_accepted');
+                                
+                                if (hasPending) {
+                                  return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700 border border-yellow-300">Pending Terms</span>;
+                                } else if (hasAccepted) {
+                                  return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 border border-green-300">Terms Accepted</span>;
+                                } else {
+                                  return <StatusBadge status={request.status} />;
+                                }
+                              })()
+                            ) : (
+                              <StatusBadge status={request.status} />
+                            )}
                           </TableCell>
                           <TableCell>
                             {(() => {
@@ -1110,6 +1250,176 @@ export function PermitGenerate({ eventId }) {
         requestId={selectedRequestId}
         eventId={eventId}
       />
+
+      {/* Terms Management Dialog */}
+      <Dialog
+        open={termsDialogOpen}
+        onOpenChange={(open) => {
+          setTermsDialogOpen(open);
+          if (!open) {
+            setTermsAction(null);
+            setMarkAcceptedForm({
+              accepted_by_name: '',
+              accepted_at: new Date().toISOString().slice(0, 16),
+              notes: '',
+            });
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Manage Terms ({selectedPermits.size} permit{selectedPermits.size !== 1 ? 's' : ''})</DialogTitle>
+            <DialogDescription>
+              Choose an action for the selected permits
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            {!termsAction ? (
+              // Action selection
+              <div className="grid grid-cols-2 gap-4">
+                <Button
+                  onClick={() => setTermsAction('send')}
+                  variant="outline"
+                  className="h-24 flex flex-col items-center justify-center gap-2"
+                >
+                  <Send className="h-6 w-6" />
+                  <span className="font-semibold">Send to Approve</span>
+                  <span className="text-xs text-muted-foreground">Mark as sent to requester</span>
+                </Button>
+                <Button
+                  onClick={() => setTermsAction('mark')}
+                  variant="outline"
+                  className="h-24 flex flex-col items-center justify-center gap-2"
+                >
+                  <CheckSquare className="h-6 w-6" />
+                  <span className="font-semibold">Mark as Approved</span>
+                  <span className="text-xs text-muted-foreground">For in-person signing</span>
+                </Button>
+              </div>
+            ) : termsAction === 'send' ? (
+              // Send to approve form
+              <div className="space-y-4">
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>Send Terms</AlertTitle>
+                  <AlertDescription>
+                    This will mark the selected permits as sent to the requester for terms acceptance.
+                    The lifecycle status will remain as "Pending Terms Acceptance".
+                  </AlertDescription>
+                </Alert>
+                <div className="text-sm text-muted-foreground">
+                  Selected permits: {selectedPermits.size}
+                </div>
+              </div>
+            ) : (
+              // Mark as approved form
+              <div className="space-y-4">
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>Mark as Approved</AlertTitle>
+                  <AlertDescription>
+                    Use this when the requester has signed the terms document in person.
+                    This will update the lifecycle status to "Terms Accepted".
+                  </AlertDescription>
+                </Alert>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="accepted-by-name">Accepted By Name *</Label>
+                    <Input
+                      id="accepted-by-name"
+                      value={markAcceptedForm.accepted_by_name}
+                      onChange={(e) => setMarkAcceptedForm(prev => ({ ...prev, accepted_by_name: e.target.value }))}
+                      placeholder="Enter name of person who signed"
+                      disabled={processingTerms}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="accepted-at">Accepted At *</Label>
+                    <Input
+                      id="accepted-at"
+                      type="datetime-local"
+                      value={markAcceptedForm.accepted_at}
+                      onChange={(e) => setMarkAcceptedForm(prev => ({ ...prev, accepted_at: e.target.value }))}
+                      disabled={processingTerms}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="notes">Notes (Optional)</Label>
+                    <Textarea
+                      id="notes"
+                      value={markAcceptedForm.notes}
+                      onChange={(e) => setMarkAcceptedForm(prev => ({ ...prev, notes: e.target.value }))}
+                      placeholder="Optional notes about the acceptance"
+                      rows={3}
+                      disabled={processingTerms}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            {termsAction && (
+              <Button
+                variant="outline"
+                onClick={() => setTermsAction(null)}
+                disabled={processingTerms}
+              >
+                Back
+              </Button>
+            )}
+            {termsAction === 'send' && (
+              <Button
+                onClick={handleSendTerms}
+                disabled={processingTerms}
+              >
+                {processingTerms ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4 mr-2" />
+                    Send Terms
+                  </>
+                )}
+              </Button>
+            )}
+            {termsAction === 'mark' && (
+              <Button
+                onClick={handleMarkTermsAccepted}
+                disabled={processingTerms || !markAcceptedForm.accepted_by_name.trim()}
+              >
+                {processingTerms ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <CheckSquare className="h-4 w-4 mr-2" />
+                    Mark as Approved
+                  </>
+                )}
+              </Button>
+            )}
+            {!termsAction && (
+              <Button
+                variant="outline"
+                onClick={() => setTermsDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

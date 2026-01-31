@@ -17,16 +17,34 @@ export function TransportProvider({ children }) {
   const clientRef = useRef(null);
 
   useEffect(() => {
-    // Create transport client
-    const apiUrl = import.meta.env.VITE_API_URL 
-      ? `${import.meta.env.VITE_API_URL}/api`
-      : 'http://localhost:8005/api';
+    // Toggle: Set VITE_USE_LOCAL=true in .env to force localhost, false or unset for production
+    // If VITE_USE_LOCAL is not set, auto-detect based on hostname
+    const forceLocal = import.meta.env.VITE_USE_LOCAL === 'true';
+    const forceProduction = import.meta.env.VITE_USE_LOCAL === 'false';
+    const autoDetectLocal = typeof window !== 'undefined' && 
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
     
-    const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8005/ws';
+    const useLocal = forceLocal || (!forceProduction && autoDetectLocal);
+    
+    // Create transport client
+    const apiUrl = useLocal
+      ? (import.meta.env.VITE_API_URL_LOCAL || 'http://localhost:8005') + '/api'
+      : (import.meta.env.VITE_API_URL || 'https://ts-int.digital') + '/api';
+    
+    const wsUrl = useLocal
+      ? (import.meta.env.VITE_WS_URL_LOCAL || 'ws://localhost:8005/ws')
+      : (import.meta.env.VITE_WS_URL || 'wss://ts-int.digital/ws');
+    
+    // Ensure production uses wss:// (secure WebSocket)
+    const finalWsUrl = !useLocal && wsUrl.startsWith('ws://') 
+      ? wsUrl.replace('ws://', 'wss://')
+      : wsUrl;
+    
+    console.log('[Transport] Mode:', useLocal ? 'LOCAL' : 'PRODUCTION', { apiUrl, wsUrl: finalWsUrl });
     
     const transportClient = new Client({
       apiUrl,
-      wsUrl,
+      wsUrl: finalWsUrl,
       preferWebSocket: false, // Start with HTTP, enable WS later if needed
       autoConnectWebSocket: true, // Auto-connect WebSocket in background
     });

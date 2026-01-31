@@ -215,4 +215,29 @@ export const vappPermitApi = {
       offset: options.offset || 0,
     })
   },
+  listForRequester: async (call, eventId, status = null) => {
+    return await call('vapp.permit.listForRequester', {
+      event_id: eventId,
+      ...(status ? { status } : {}),
+    });
+  },
+  acceptTerms: async (call, eventId, permitId) => {
+    return await call('vapp.permit.acceptTerms', {
+      event_id: eventId,
+      permit_id: permitId,
+    });
+  },
+  sendTerms: async (call, eventId, permitIds) => {
+    return await call('vapp.permit.sendTerms', {
+      event_id: eventId,
+      permit_ids: permitIds,
+    });
+  },
+  markTermsAccepted: async (call, eventId, permitIds, data) => {
+    return await call('vapp.permit.markTermsAccepted', {
+      event_id: eventId,
+      permit_ids: permitIds,
+      ...data,
+    });
+  },
 };

@@ -2,10 +2,13 @@
  * WebSocket Transport
  * 
  * WebSocket-based RPC transport with event support.
- * Suitable for real-time communication and streaming.
+ * Uses State Machine + ReconnectSupervisor for robust connection management.
  */
 
 import { Transport } from './Transport';
+import { createWebSocketStateMachine, WS_STATES } from './WebSocketStateMachine';
+import { ReconnectSupervisor } from './ReconnectSupervisor';
+import { ErrorHandler } from './ErrorHandler';
 
 export class WebSocketTransport extends Transport {
   constructor(wsUrl, options = {}) {
@@ -13,14 +16,64 @@ export class WebSocketTransport extends Transport {
     this.ws = null;
     this.callbacks = new Map();
     this.streams = new Map(); // Stream ID → StreamDownloader
-    this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = options.maxReconnectAttempts || 5;
-    this.reconnectDelay = options.reconnectDelay || 1000;
-    this.autoReconnect = options.autoReconnect !== false;
     this.connectionPromise = null;
     this.binaryQueue = Promise.resolve();
     this.refreshHandler = null;
+    this.reconnectTimeout = null;
+    
+    // Options
+    this.autoReconnect = options.autoReconnect !== false;
+    this.debug = options.debug ?? false;
     this.suppressAutoReconnect = false;
+
+    // Initialize State Machine
+    this.stateMachine = createWebSocketStateMachine({
+      initialState: WS_STATES.IDLE,
+      debug: this.debug,
+      onTransition: (from, to, context) => {
+        if (this.debug) {
+          console.debug(`[WS Transport] State: ${from} → ${to}`, context);
+        }
+        // Emit state change events
+        if (to === WS_STATES.CONNECTED) {
+          this.emit('connected');
+        } else if (to === WS_STATES.DISCONNECTED) {
+          this.emit('disconnected');
+        }
+      },
+      handlers: {
+        onEnterConnected: () => {
+          // Reset supervisor on successful connection
+          this.reconnectSupervisor.reset();
+        },
+        onExitConnected: () => {
+          // Clear any reconnect timeout when leaving connected state
+          if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+            this.reconnectTimeout = null;
+          }
+        },
+        onExitDisconnected: () => {
+          // Clear reconnect timeout when leaving disconnected state
+          if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+            this.reconnectTimeout = null;
+          }
+        },
+      },
+    });
+
+    // Initialize ReconnectSupervisor
+    this.reconnectSupervisor = new ReconnectSupervisor({
+      minDelay: options.reconnectDelay || 1000,
+      maxDelay: options.maxReconnectDelay || 30000,
+      maxAttempts: options.maxReconnectAttempts || 10,
+      jitter: 0.2, // ±20% randomness
+      debug: this.debug,
+    });
+
+    // Initialize Error Handler
+    this.errorHandler = new ErrorHandler({ debug: this.debug });
   }
 
   /**
@@ -33,42 +86,60 @@ export class WebSocketTransport extends Transport {
     }
 
     // Already connected
-    if (this.connected && this.ws?.readyState === WebSocket.OPEN) {
+    if (this.stateMachine.isConnected() && this.ws?.readyState === WebSocket.OPEN) {
       return true;
+    }
+
+    // Transition to CONNECTING
+    if (!this.stateMachine.transition(WS_STATES.CONNECTING)) {
+      // Invalid transition - might already be connecting
+      return this.connectionPromise || Promise.resolve(false);
     }
 
     this.connectionPromise = new Promise((resolve, reject) => {
       try {
         this.ws = new WebSocket(this.url);
-        // Ensure binary frames arrive as ArrayBuffer to preserve ordering
         this.ws.binaryType = 'arraybuffer';
 
         const timeout = setTimeout(() => {
-          reject(new Error('WebSocket connection timeout'));
+          if (this.debug) {
+            console.warn('[WS Transport] Connection timeout');
+          }
           this.ws?.close();
+          this.stateMachine.transition(WS_STATES.DISCONNECTED, { reason: 'timeout' });
+          reject(new Error('WebSocket connection timeout'));
         }, 10000);
 
         this.ws.onopen = () => {
           clearTimeout(timeout);
-          this.connected = true;
-          this.reconnectAttempts = 0;
           this.connectionPromise = null;
-          this.emit('connected');
+          this.stateMachine.transition(WS_STATES.CONNECTED);
           resolve(true);
         };
 
         this.ws.onerror = (error) => {
           clearTimeout(timeout);
           this.connectionPromise = null;
+          // Suppress expected errors (connection failures are handled by reconnection)
+          // Only log in debug mode or if it's a persistent failure
+          if (this.debug) {
+            console.debug('[WS Transport] Connection error (will retry):', error);
+          }
+          this.stateMachine.transition(WS_STATES.DISCONNECTED, { reason: 'error' });
           reject(error);
         };
 
         this.ws.onmessage = (event) => {
-          console.log(`[WS onmessage] Received:`, {
-            type: typeof event.data,
-            isString: typeof event.data === 'string',
-            size: event.data instanceof Blob ? event.data.size : (event.data.length || event.data.byteLength || 'unknown'),
-          });
+          // Suppress verbose message logging in production
+          if (this.debug) {
+            console.debug(`[WS Transport] Message received:`, {
+              type: typeof event.data,
+              isString: typeof event.data === 'string',
+              size: event.data instanceof Blob 
+                ? event.data.size 
+                : (event.data.length || event.data.byteLength || 'unknown'),
+            });
+          }
           
           if (typeof event.data === 'string') {
             this.handleMessage(event.data);
@@ -77,16 +148,38 @@ export class WebSocketTransport extends Transport {
             this.binaryQueue = this.binaryQueue
               .then(() => this.handleBinaryMessage(event.data))
               .catch((error) => {
-                console.error('Failed to handle binary message:', error);
+                console.error('[WS Transport] Failed to handle binary message:', error);
               });
           }
         };
 
-        this.ws.onclose = () => {
+        this.ws.onclose = (event) => {
+          // Suppress expected close events (page navigation, reconnection)
+          const isExpectedClose = 
+            event.code === 1000 || // Normal closure
+            event.code === 1001 || // Going away
+            event.wasClean ||
+            this.suppressAutoReconnect; // Manual close
+          
+          if (!isExpectedClose && this.debug) {
+            console.debug('[WS Transport] Connection closed:', {
+              code: event.code,
+              reason: event.reason,
+              wasClean: event.wasClean,
+            });
+          }
+          
+          // Transition to DISCONNECTED
+          this.stateMachine.transition(WS_STATES.DISCONNECTED, {
+            code: event.code,
+            reason: event.reason,
+            wasClean: event.wasClean,
+          });
           this.handleDisconnect();
         };
       } catch (error) {
         this.connectionPromise = null;
+        this.stateMachine.transition(WS_STATES.DISCONNECTED, { reason: 'exception' });
         reject(error);
       }
     });
@@ -95,16 +188,41 @@ export class WebSocketTransport extends Transport {
   }
 
   /**
-   * Make WebSocket RPC call
+   * Make WebSocket RPC call with retry logic
    */
-  async call(method, args = {}) {
-    // Ensure connected
-    if (!this.connected || this.ws?.readyState !== WebSocket.OPEN) {
-      // Try to reconnect
-      try {
-        await this.connect();
-      } catch (error) {
-        throw new Error('WebSocket not connected');
+  async call(method, args = {}, retryCount = 0) {
+    const maxRetries = 2;
+    
+    // Ensure connected - check state machine first
+    if (!this.stateMachine.isConnected() || this.ws?.readyState !== WebSocket.OPEN) {
+      // Try to reconnect if not already connecting
+      if (!this.stateMachine.isConnecting()) {
+        try {
+          await this.connect();
+        } catch (error) {
+          // If connection fails and we have retries, wait and retry
+          if (retryCount < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+            return this.call(method, args, retryCount + 1);
+          }
+          throw new Error('WebSocket not connected');
+        }
+      } else {
+        // Wait for connection to complete (with timeout)
+        try {
+          await Promise.race([
+            this.connectionPromise,
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Connection timeout')), 10000)
+            ),
+          ]);
+        } catch (error) {
+          if (retryCount < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+            return this.call(method, args, retryCount + 1);
+          }
+          throw new Error('WebSocket connection timeout');
+        }
       }
     }
 
@@ -141,16 +259,22 @@ export class WebSocketTransport extends Transport {
     try {
       return await doCall();
     } catch (error) {
-      const message = String(error?.message || '');
-      const authError =
-        error?.status === 401 ||
-        error?.code === 401 ||
-        error?.code === 'AUTH_REQUIRED' ||
-        error?.code === 'INVALID_TOKEN' ||
-        /authentication required|invalid or expired token/i.test(message);
-
+      // Use error handler to categorize error
+      const isConnectionError = this.errorHandler.isConnectionError(error);
+      const isAuthError = this.errorHandler.isAuthError(error);
+      
+      // Retry on connection errors
+      if (isConnectionError && retryCount < maxRetries) {
+        if (this.debug) {
+          console.debug(`[WS Transport] Retrying call due to connection error (attempt ${retryCount + 1}/${maxRetries}):`, method);
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+        return this.call(method, args, retryCount + 1);
+      }
+      
+      // Handle auth errors
       if (
-        authError &&
+        isAuthError &&
         this.refreshHandler &&
         !args?._retry &&
         method !== 'auth/refresh'
@@ -158,9 +282,13 @@ export class WebSocketTransport extends Transport {
         const refreshed = await this.refreshHandler();
         if (refreshed) {
           await this.forceReconnect();
-          return await this.call(method, { ...args, _retry: true });
+          return await this.call(method, { ...args, _retry: true }, 0);
         }
       }
+      
+      // Handle error with appropriate logging
+      this.errorHandler.handleError(error, { operation: `call(${method})` });
+      
       throw error;
     }
   }
@@ -202,10 +330,12 @@ export class WebSocketTransport extends Transport {
         return;
       }
 
-      // Unknown packet type
-      console.warn('Unknown packet type:', packet.type);
+      // Unknown packet type - only warn in debug mode
+      if (this.debug) {
+        console.warn('[WS Transport] Unknown packet type:', packet.type);
+      }
     } catch (error) {
-      console.error('Failed to handle WebSocket message:', error);
+      console.error('[WS Transport] Failed to handle WebSocket message:', error);
     }
   }
 
@@ -230,11 +360,11 @@ export class WebSocketTransport extends Transport {
       const stream = this.streams.get(streamId);
       if (stream) {
         stream.handleChunk(payload);
-      } else {
-        console.warn(`Received chunk for unknown stream: ${streamId}`);
+      } else if (this.debug) {
+        console.warn(`[WS Transport] Received chunk for unknown stream: ${streamId}`);
       }
     } catch (error) {
-      console.error('Failed to handle binary message:', error);
+      console.error('[WS Transport] Failed to handle binary message:', error);
     }
   }
 
@@ -263,8 +393,8 @@ export class WebSocketTransport extends Transport {
       if (stream) {
         stream.handleTerminate();
       }
-    } else {
-      console.warn('Unknown stream status:', status);
+    } else if (this.debug) {
+      console.warn('[WS Transport] Unknown stream status:', status);
     }
   }
 
@@ -272,7 +402,7 @@ export class WebSocketTransport extends Transport {
    * Send binary chunk (Metacom-style)
    */
   async sendBinary(chunk) {
-    if (!this.connected || !this.ws) {
+    if (!this.stateMachine.isConnected() || !this.ws) {
       throw new Error('WebSocket not connected');
     }
 
@@ -284,10 +414,10 @@ export class WebSocketTransport extends Transport {
   }
 
   /**
-   * Send JSON packet (overridden to add stream support)
+   * Send JSON packet
    */
   async send(packet) {
-    if (!this.connected || !this.ws) {
+    if (!this.stateMachine.isConnected() || !this.ws) {
       throw new Error('WebSocket not connected');
     }
 
@@ -316,31 +446,43 @@ export class WebSocketTransport extends Transport {
    * Handle WebSocket disconnection
    */
   handleDisconnect() {
-    this.connected = false;
     this.connectionPromise = null;
 
-    // Reject all pending callbacks
-    this.callbacks.forEach((callback, id) => {
-      callback.reject(new Error('Connection closed'));
+    // Reject all pending callbacks with a connection error
+    // This allows callers to retry if needed
+    this.callbacks.forEach((callback) => {
+      const error = this.errorHandler.createConnectionError('Connection closed');
+      callback.reject(error);
     });
     this.callbacks.clear();
 
-    // Emit disconnect event
-    this.emit('disconnected');
-
-      // Attempt reconnect if enabled
-      if (!this.suppressAutoReconnect && this.autoReconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
-        this.reconnectAttempts++;
-        const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
-        
-        // Silent reconnection attempts - backend might not have WS support yet
-        setTimeout(() => {
-          this.connect().catch(() => {
-            // Silent failure - this is expected if backend doesn't support WS
-          });
+    // Attempt reconnect if enabled
+    if (!this.suppressAutoReconnect && this.autoReconnect) {
+      const delay = this.reconnectSupervisor.getNextDelay();
+      
+      if (delay !== null) {
+        // Schedule reconnection (silent - expected behavior)
+        this.reconnectTimeout = setTimeout(() => {
+          this.reconnectTimeout = null;
+          if (this.stateMachine.isDisconnected()) {
+            this.connect().catch((error) => {
+              // Suppress expected reconnection errors
+              // Only log in debug mode or if max attempts reached
+              if (this.debug && !this.reconnectSupervisor.canRetry()) {
+                console.warn('[WS Transport] Reconnection failed, max attempts reached');
+              }
+            });
+          }
         }, delay);
+      } else {
+        // Max attempts reached - only log in debug mode
+        if (this.debug) {
+          console.warn('[WS Transport] Max reconnection attempts reached. Stopping reconnection.');
+        }
       }
-      this.suppressAutoReconnect = false;
+    }
+    
+    this.suppressAutoReconnect = false;
   }
 
   /**
@@ -349,13 +491,18 @@ export class WebSocketTransport extends Transport {
   async close() {
     this.autoReconnect = false; // Disable auto-reconnect
     
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+    
     if (this.ws) {
       this.ws.close();
       this.ws = null;
     }
     
-    this.connected = false;
     this.connectionPromise = null;
+    this.stateMachine.transition(WS_STATES.IDLE);
     
     // Clear all callbacks
     this.callbacks.forEach((callback) => {
@@ -373,8 +520,8 @@ export class WebSocketTransport extends Transport {
       this.ws.close();
       this.ws = null;
     }
-    this.connected = false;
     this.connectionPromise = null;
+    this.stateMachine.transition(WS_STATES.DISCONNECTED, { reason: 'force_reconnect' });
     return this.connect();
   }
 
@@ -396,6 +543,27 @@ export class WebSocketTransport extends Transport {
    * Check if WebSocket is connected
    */
   isConnected() {
-    return this.connected && this.ws?.readyState === WebSocket.OPEN;
+    return this.stateMachine.isConnected() && this.ws?.readyState === WebSocket.OPEN;
+  }
+
+  /**
+   * Get connection state
+   */
+  getState() {
+    return this.stateMachine.getState();
+  }
+
+  /**
+   * Get debug information
+   */
+  getDebugInfo() {
+    return {
+      state: this.stateMachine.getState(),
+      stateHistory: this.stateMachine.getHistory(),
+      reconnectStats: this.reconnectSupervisor.getStats(),
+      callbacks: this.callbacks.size,
+      streams: this.streams.size,
+      wsReadyState: this.ws?.readyState,
+    };
   }
 }

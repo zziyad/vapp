@@ -33,6 +33,8 @@ const RequesterRequestDetailPage = lazy(() => import('@/pages/vapp/requester/req
 const RequesterNeedInfoPage = lazy(() => import('@/pages/vapp/requester/need-info/index.jsx'))
 const RequesterNotificationsPage = lazy(() => import('@/pages/vapp/requester/notifications/index.jsx'))
 const CreateRequestPage = lazy(() => import('@/pages/vapp/requester/requests/new/index.jsx'))
+const MyPermitsPage = lazy(() => import('@/pages/vapp/requester/permits/index.jsx'))
+const TermsAcceptancePage = lazy(() => import('@/pages/vapp/requester/permits/[permitId]/accept-terms/index.jsx'))
 const AdminDashboard = lazy(() => import('@/pages/vapp/admin/AdminDashboard'))
 const SectorsPage = lazy(() => import('@/pages/vapp/admin/sectors/index.jsx'))
 const FunctionalAreasPage = lazy(() => import('@/pages/vapp/admin/functional-areas/index.jsx'))
@@ -418,6 +420,26 @@ export const routes = [
     meta: {
       title: 'Notifications',
       description: 'View notifications and messages about your requests',
+    },
+  },
+  {
+    path: '/events/:eventId/vapp/requester/permits',
+    component: MyPermitsPage,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'My Permits',
+      description: 'View and manage your permits',
+    },
+  },
+  {
+    path: '/events/:eventId/vapp/requester/permits/:permitId/accept-terms',
+    component: TermsAcceptancePage,
+    protected: true,
+    layout: VappLayout,
+    meta: {
+      title: 'Accept Terms & Conditions',
+      description: 'Review and accept terms to activate your permit',
     },
   },
   {

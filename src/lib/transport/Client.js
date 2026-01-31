@@ -12,17 +12,23 @@ import { StreamDownloader } from './StreamDownloader';
 
 export class Client {
   constructor(options = {}) {
+    // Default URLs (fallback only - TransportContext should always provide URLs)
+    // These defaults match production, but are rarely used since TransportContext
+    // always passes explicit URLs based on VITE_USE_LOCAL toggle
     const {
-      apiUrl = 'http://localhost:8005/api',
-      wsUrl = 'ws://localhost:8005/ws',
+      apiUrl = 'https://ts-int.digital/api',
+      wsUrl = 'wss://ts-int.digital/ws',
       preferWebSocket = false,
       autoConnectWebSocket = false,
     } = options;
 
     this.httpTransport = new HttpTransport(apiUrl);
     this.wsTransport = new WebSocketTransport(wsUrl, {
-      autoReconnect: true,
-      maxReconnectAttempts: 5,
+      autoReconnect: options.autoConnectWebSocket !== false,
+      maxReconnectAttempts: options.maxReconnectAttempts || 10,
+      reconnectDelay: options.reconnectDelay || 1000,
+      maxReconnectDelay: options.maxReconnectDelay || 30000,
+      debug: options.debug || false,
     });
     
     this.preferWebSocket = preferWebSocket;
@@ -156,6 +162,20 @@ export class Client {
     return {
       http: this.httpConnected,
       websocket: this.wsConnected,
+      preferWebSocket: this.preferWebSocket,
+      wsState: this.wsTransport.getState?.(),
+    };
+  }
+
+  /**
+   * Get debug information (state machine, reconnect stats, etc.)
+   */
+  getDebugInfo() {
+    return {
+      http: {
+        connected: this.httpConnected,
+      },
+      websocket: this.wsTransport.getDebugInfo?.(),
       preferWebSocket: this.preferWebSocket,
     };
   }

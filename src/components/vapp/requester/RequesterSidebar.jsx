@@ -2,7 +2,7 @@
 
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, FileText, FileEdit, AlertCircle, Bell } from "lucide-react";
+import { LayoutDashboard, FileText, FileEdit, AlertCircle, Bell, FileCheck } from "lucide-react";
 
 const NAV_ITEMS = [
   {
@@ -14,6 +14,11 @@ const NAV_ITEMS = [
     label: "My Requests",
     href: (eventId) => `/events/${eventId}/vapp/requester/requests`,
     icon: FileText,
+  },
+  {
+    label: "My Permits",
+    href: (eventId) => `/events/${eventId}/vapp/requester/permits`,
+    icon: FileCheck,
   },
   {
     label: "Drafts",
